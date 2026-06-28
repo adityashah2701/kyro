@@ -67,13 +67,19 @@ export const processDeploymentJob = async (job: Job<QueueJobData>) => {
 
     // 2. Cloning
     await updateStatus(deploymentId, "cloning");
-    await GitService.cloneRepository(
+    const { commitSha, commitMessage } = await GitService.cloneRepository(
       repoRecord.cloneUrl,
       deploymentRecord.branch,
       workspacePath,
       repoRecord.isPrivate,
       githubAcc?.installationId,
     );
+
+    // Save commit info
+    await db
+      .update(schema.deployment)
+      .set({ commitSha, commitMessage })
+      .where(eq(schema.deployment.id, deploymentId));
 
     // 3. Detecting Framework
     const detection = await DetectorService.detect(workspacePath);

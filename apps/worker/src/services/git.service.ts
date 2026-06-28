@@ -66,7 +66,7 @@ export class GitService {
     destinationPath: string,
     isPrivate: boolean,
     installationId?: string,
-  ): Promise<void> {
+  ): Promise<{ commitSha: string; commitMessage: string }> {
     const git: SimpleGit = simpleGit();
     let finalCloneUrl = cloneUrl;
 
@@ -105,5 +105,15 @@ export class GitService {
     ]);
 
     logger.info({ destinationPath }, "Repository cloned successfully");
+
+    // Fetch the latest commit info
+    const gitDest = simpleGit(destinationPath);
+    const log = await gitDest.log({ maxCount: 1 });
+    const latestCommit = log.latest;
+
+    return {
+      commitSha: latestCommit?.hash || "",
+      commitMessage: latestCommit?.message || "",
+    };
   }
 }
