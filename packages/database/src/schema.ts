@@ -124,4 +124,11 @@ export const deployment = pgTable("deployment", {
   createdAt: timestamp("createdAt").notNull().defaultNow(),
   updatedAt: timestamp("updatedAt").notNull().defaultNow(),
   metadata: jsonb("metadata"),
+  previewUrl: text("previewUrl"),
+  artifactLocation: text("artifactLocation"),
+  artifactSize: integer("artifactSize"),
+  storageProvider: text("storageProvider"),
+  active: boolean("active").notNull().default(false),
+  activatedAt: timestamp("activatedAt"),
+  checksum: text("checksum"),
 });

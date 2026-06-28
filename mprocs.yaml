@@ -11,3 +11,5 @@ procs:
     autostart: false
   ngrok:
     shell: "ngrok http 3000 --url https://preevolutional-unguaranteed-parker.ngrok-free.dev"
+  proxy:
+    shell: npm run dev -w @kyro/proxy

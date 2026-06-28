@@ -1,0 +1,17 @@
+{
+  "name": "@kyro/storage",
+  "version": "1.0.0",
+  "main": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "minio": "^8.0.2",
+    "mime-types": "^2.1.35"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "@types/node": "^20.0.0",
+    "@types/mime-types": "^2.1.4"
+  }
+}

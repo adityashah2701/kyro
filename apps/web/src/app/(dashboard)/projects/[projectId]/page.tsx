@@ -60,6 +60,8 @@ export default async function ProjectDetailsPage(props: {
     status: d.status,
     createdAt: d.createdAt,
     buildDuration: d.buildDuration,
+    previewUrl: d.previewUrl,
+    active: d.active,
   }));
 
   return (
@@ -87,10 +89,16 @@ export default async function ProjectDetailsPage(props: {
             projectId={params.projectId}
             isRepositoryLinked={!!linkedRepo}
           />
-          <Button variant="outline" size="sm">
-            <ExternalLink className="mr-2 h-4 w-4" />
-            Visit
-          </Button>
+          <a
+            href={`http://${projectData.slug}.localhost:8000`}
+            target="_blank"
+            rel="noreferrer"
+          >
+            <Button variant="outline" size="sm">
+              <ExternalLink className="mr-2 h-4 w-4" />
+              Visit
+            </Button>
+          </a>
         </div>
       </PageHeader>
 
@@ -131,10 +139,15 @@ export default async function ProjectDetailsPage(props: {
 
             <div className="rounded-xl border bg-card text-card-foreground shadow-sm p-6">
               <div className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <h3 className="tracking-tight text-sm font-medium">Domains</h3>
+                <h3 className="tracking-tight text-sm font-medium">Domain</h3>
                 <Globe className="h-4 w-4 text-muted-foreground" />
               </div>
-              <div className="text-2xl font-bold mt-2">0</div>
+              <div
+                className="text-lg font-bold mt-2 truncate"
+                title={`${projectData.slug}.localhost:8000`}
+              >
+                {projectData.slug}.localhost
+              </div>
             </div>
 
             <div className="rounded-xl border bg-card text-card-foreground shadow-sm p-6">

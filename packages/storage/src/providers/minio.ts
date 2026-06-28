@@ -1,0 +1,100 @@
+import { Client as MinioClient } from "minio";
+import * as fs from "fs/promises";
+import * as path from "path";
+import * as mime from "mime-types";
+import { Readable } from "stream";
+
+export interface StorageProvider {
+  /**
+   * Uploads an entire directory recursively to the storage provider.
+   * @param localDir The local directory path
+   * @param prefix The prefix (folder) in the storage bucket
+   */
+  uploadDirectory(localDir: string, prefix: string): Promise<void>;
+
+  /**
+   * Downloads a specific file as a readable stream.
+   * @param filePath The file path in the storage bucket
+   */
+  downloadStream(
+    filePath: string,
+  ): Promise<{ stream: Readable; contentType: string; size: number } | null>;
+}
+
+export class MinioStorageProvider implements StorageProvider {
+  private client: MinioClient;
+  private bucketName: string;
+
+  constructor(
+    config: {
+      endPoint: string;
+      port: number;
+      useSSL: boolean;
+      accessKey: string;
+      secretKey: string;
+    },
+    bucketName: string,
+  ) {
+    this.client = new MinioClient(config);
+    this.bucketName = bucketName;
+  }
+
+  public async initialize(): Promise<void> {
+    const exists = await this.client.bucketExists(this.bucketName);
+    if (!exists) {
+      await this.client.makeBucket(this.bucketName, "us-east-1");
+    }
+  }
+
+  public async uploadDirectory(
+    localDir: string,
+    prefix: string,
+  ): Promise<void> {
+    async function getFiles(dir: string): Promise<string[]> {
+      const dirents = await fs.readdir(dir, { withFileTypes: true });
+      const files = await Promise.all(
+        dirents.map((dirent) => {
+          const res = path.resolve(dir, dirent.name);
+          return dirent.isDirectory() ? getFiles(res) : res;
+        }),
+      );
+      return Array.prototype.concat(...files);
+    }
+
+    const files = await getFiles(localDir);
+
+    for (const file of files) {
+      const relativePath = path.relative(localDir, file);
+      // Ensure forward slashes for S3 object keys
+      const objectName = path.posix.join(
+        prefix,
+        relativePath.split(path.sep).join(path.posix.sep),
+      );
+
+      const contentType = mime.lookup(file) || "application/octet-stream";
+      await this.client.fPutObject(this.bucketName, objectName, file, {
+        "Content-Type": contentType,
+      });
+    }
+  }
+
+  public async downloadStream(
+    filePath: string,
+  ): Promise<{ stream: Readable; contentType: string; size: number } | null> {
+    try {
+      const stat = await this.client.statObject(this.bucketName, filePath);
+      const stream = await this.client.getObject(this.bucketName, filePath);
+      return {
+        stream,
+        contentType:
+          stat.metaData["content-type"] || "application/octet-stream",
+        size: stat.size,
+      };
+    } catch (error: any) {
+      if (error.code === "NotFound" || error.code === "NoSuchKey") {
+        return null;
+      }
+      throw error;
+    }
+  }
+}

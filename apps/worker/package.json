@@ -11,6 +11,7 @@
   "dependencies": {
     "@kyro/database": "*",
     "@kyro/shared": "*",
+    "@kyro/storage": "^1.0.0",
     "@octokit/auth-app": "^8.2.0",
     "@octokit/rest": "^22.0.1",
     "bullmq": "^5.79.2",

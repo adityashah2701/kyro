@@ -25,6 +25,8 @@ type DeploymentData = {
   status: string;
   createdAt: Date;
   buildDuration: number | null;
+  previewUrl: string | null;
+  active: boolean | null;
 };
 
 export function DeploymentHistoryTable({
@@ -96,6 +98,23 @@ export function DeploymentHistoryTable({
     }
   };
 
+  const handleActivate = async (deploymentId: string) => {
+    try {
+      setProcessingId(deploymentId);
+      const res = await fetch(`/api/deployments/${deploymentId}/activate`, {
+        method: "POST",
+      });
+      if (!res.ok) throw new Error("Failed to activate");
+      toast.success("Deployment activated! (Rollback successful)");
+      router.refresh();
+    } catch (e) {
+      toast.error("Failed to activate deployment.");
+      console.log(e);
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
   return (
     <div className="border rounded-lg overflow-hidden bg-card">
       <Table>
@@ -105,6 +124,7 @@ export function DeploymentHistoryTable({
             <TableHead>Branch</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Duration</TableHead>
+            <TableHead>Preview URL</TableHead>
             <TableHead>Created</TableHead>
             <TableHead className="text-right">Actions</TableHead>
           </TableRow>
@@ -140,6 +160,20 @@ export function DeploymentHistoryTable({
                     : "-"}
                 </TableCell>
                 <TableCell className="text-muted-foreground text-sm">
+                  {d.previewUrl ? (
+                    <a
+                      href={`http://${d.previewUrl}:8000`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-blue-500 hover:underline"
+                    >
+                      {d.previewUrl}
+                    </a>
+                  ) : (
+                    "-"
+                  )}
+                </TableCell>
+                <TableCell className="text-muted-foreground text-sm">
                   {formatDistanceToNow(new Date(d.createdAt), {
                     addSuffix: true,
                   })}
@@ -168,6 +202,20 @@ export function DeploymentHistoryTable({
                         >
                           Retry
                         </Button>
+                      )}
+                      {d.status === "success" && !d.active && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleActivate(d.id)}
+                        >
+                          Activate
+                        </Button>
+                      )}
+                      {d.active && (
+                        <span className="text-xs font-semibold text-green-600 bg-green-100 px-2 py-1 rounded ml-2">
+                          Active
+                        </span>
                       )}
                     </>
                   )}

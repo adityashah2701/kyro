@@ -101,17 +101,39 @@ export const processDeploymentJob = async (job: Job<QueueJobData>) => {
 
     // 6. Collecting Artifacts
     await updateStatus(deploymentId, "uploading");
-    const { buildSize, metadata } = await ArtifactService.collect(
-      workspacePath,
-      detection,
-    );
+    const {
+      buildSize,
+      hash,
+      checksum,
+      artifactLocation,
+      storageProvider,
+      metadata,
+    } = await ArtifactService.collect(workspacePath, detection);
 
     // 7. Success
     const buildDuration = Date.now() - startTime;
+    const previewUrl = `${deploymentRecord.projectId}-${hash}.localhost`;
+    const isActive = deploymentRecord.branch === repoRecord.defaultBranch;
+
+    // If making active, deactivate others
+    if (isActive) {
+      await db
+        .update(schema.deployment)
+        .set({ active: false })
+        .where(eq(schema.deployment.projectId, deploymentRecord.projectId));
+    }
+
     await updateStatus(deploymentId, "success", {
       completedAt: new Date(),
       buildDuration,
       metadata,
+      artifactLocation,
+      artifactSize: buildSize,
+      storageProvider,
+      previewUrl,
+      checksum,
+      active: isActive,
+      activatedAt: isActive ? new Date() : null,
     });
 
     logger.info(

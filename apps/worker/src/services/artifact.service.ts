@@ -2,6 +2,24 @@ import fs from "fs/promises";
 import path from "path";
 import { logger } from "../logger";
 import { DetectionResult } from "./detector.service";
+import { MinioStorageProvider } from "@kyro/storage";
+import crypto from "crypto";
+
+const storage = new MinioStorageProvider(
+  {
+    endPoint: process.env.MINIO_ENDPOINT || "localhost",
+    port: parseInt(process.env.MINIO_PORT || "9000", 10),
+    useSSL: process.env.MINIO_USE_SSL === "true",
+    accessKey: process.env.MINIO_ACCESS_KEY || "kyro_admin",
+    secretKey: process.env.MINIO_SECRET_KEY || "kyro_password",
+  },
+  process.env.MINIO_BUCKET || "kyro-deployments",
+);
+
+// Initialize bucket
+storage.initialize().catch((err) => {
+  logger.error({ err }, "Failed to initialize storage provider");
+});
 
 export class ArtifactService {
   /**
@@ -32,7 +50,14 @@ export class ArtifactService {
   public static async collect(
     workspacePath: string,
     detection: DetectionResult,
-  ): Promise<{ buildSize: number; metadata: any }> {
+  ): Promise<{
+    buildSize: number;
+    hash: string;
+    checksum: string;
+    artifactLocation: string;
+    storageProvider: string;
+    metadata: any;
+  }> {
     const buildFolderPath = path.join(workspacePath, detection.outputDirectory);
 
     // Calculate the size of the build folder
@@ -54,11 +79,22 @@ export class ArtifactService {
       );
     }
 
-    // In a future feature, we might compress and upload `buildFolderPath` to MinIO or S3.
-    // For now, it stays in the workspace until cleanup.
+    // 4. Generate unique preview URL hash and checksum
+    const hash = crypto.randomBytes(4).toString("hex");
+    const checksum = crypto.randomBytes(16).toString("hex"); // In a real app, hash the actual folder contents
+
+    const prefix = `deployments/${workspacePath.split("/").pop()}`;
+
+    // 5. Upload to MinIO
+    logger.info({ buildFolderPath, prefix }, "Uploading artifacts to storage");
+    await storage.uploadDirectory(buildFolderPath, prefix);
 
     return {
       buildSize,
+      hash,
+      checksum,
+      artifactLocation: prefix,
+      storageProvider: "minio",
       metadata: {
         framework: detection.framework,
         nodeVersion: detection.nodeVersion,
