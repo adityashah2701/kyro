@@ -19,8 +19,33 @@ export class RoutingService {
     // Strip port if present
     const hostname = host.split(":")[0];
 
-    // For local testing, we assume domains end with .localhost
-    // In production, it would be .kyro.dev
+    // 1. Check Custom Domains first
+    const customDomainMatch = await db.query.domain.findFirst({
+      where: and(
+        eq(schema.domain.hostname, hostname),
+        eq(schema.domain.verificationStatus, "verified"),
+      ),
+    });
+
+    if (customDomainMatch) {
+      const activeDeployment = await db.query.deployment.findFirst({
+        where: and(
+          eq(schema.deployment.projectId, customDomainMatch.projectId),
+          eq(schema.deployment.active, true),
+          eq(schema.deployment.status, "success"),
+        ),
+      });
+
+      if (activeDeployment && activeDeployment.artifactLocation) {
+        return {
+          deploymentId: activeDeployment.id,
+          projectId: customDomainMatch.projectId,
+          artifactLocation: activeDeployment.artifactLocation,
+        };
+      }
+    }
+
+    // 2. Check system domains (e.g. project-hash.localhost or project.localhost)
     const baseDomain = process.env.BASE_DOMAIN || "localhost";
 
     if (!hostname.endsWith(`.${baseDomain}`)) {

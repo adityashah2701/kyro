@@ -21,6 +21,8 @@ import { disconnectRepository } from "@/features/github/actions";
 import { getProjectDeployments } from "@/features/deployment/services/deployment.service";
 import { DeployButton } from "@/features/deployment/components/deploy-button";
 import { DeploymentHistoryTable } from "@/features/deployment/components/deployment-history-table";
+import { DomainsTab } from "@/features/domains/components/domains-tab";
+import { DomainService } from "@/features/domains/services/domain.service";
 
 export default async function ProjectDetailsPage(props: {
   params: Promise<{ projectId: string }>;
@@ -64,6 +66,17 @@ export default async function ProjectDetailsPage(props: {
     active: d.active,
   }));
 
+  const projectDomains = await DomainService.getProjectDomains(
+    params.projectId
+  );
+  const verifiedPrimaryDomain = projectDomains.find(
+    (d) => d.isPrimary && d.verificationStatus === "verified"
+  );
+
+  const mainHost = verifiedPrimaryDomain
+    ? verifiedPrimaryDomain.hostname
+    : `${projectData.slug}.localhost`;
+
   return (
     <div className="p-6 sm:p-10 max-w-6xl mx-auto">
       <div className="mb-6 flex items-center text-sm text-muted-foreground">
@@ -89,11 +102,7 @@ export default async function ProjectDetailsPage(props: {
             projectId={params.projectId}
             isRepositoryLinked={!!linkedRepo}
           />
-          <a
-            href={`http://${projectData.slug}.localhost:8000`}
-            target="_blank"
-            rel="noreferrer"
-          >
+          <a href={`http://${mainHost}:8000`} target="_blank" rel="noreferrer">
             <Button variant="outline" size="sm">
               <ExternalLink className="mr-2 h-4 w-4" />
               Visit
@@ -144,9 +153,9 @@ export default async function ProjectDetailsPage(props: {
               </div>
               <div
                 className="text-lg font-bold mt-2 truncate"
-                title={`${projectData.slug}.localhost:8000`}
+                title={`${mainHost}:8000`}
               >
-                {projectData.slug}.localhost
+                {mainHost}
               </div>
             </div>
 
@@ -215,9 +224,7 @@ export default async function ProjectDetailsPage(props: {
         </TabsContent>
 
         <TabsContent value="domains">
-          <div className="text-sm text-muted-foreground p-4 border rounded-md">
-            Domains content placeholder
-          </div>
+          <DomainsTab domains={projectDomains} projectId={params.projectId} />
         </TabsContent>
 
         <TabsContent value="env">

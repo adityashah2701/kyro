@@ -1,271 +1,175 @@
-# Feature 08 — Deployment Serving Engine
+# Feature 09 — Custom Domains & Automatic SSL
 
 You are continuing the existing project.
 
 Do NOT regenerate previous features.
 
-Use the existing architecture.
-
-This feature is responsible for serving successfully built deployments.
-
-The deployment engine already produces build artifacts.
-
-Now those artifacts need to become publicly accessible.
+Use the existing architecture, deployment engine, storage layer, reverse proxy abstraction, and authentication system.
 
 ---
 
 # Goal
 
-Build a production-grade deployment serving system.
+Implement a production-grade custom domain management system.
 
-This feature should expose deployed applications using wildcard subdomains.
+Users should be able to:
 
-The system should support future horizontal scaling.
+- Add custom domains
+- Verify domain ownership
+- Configure DNS
+- Generate SSL certificates automatically
+- Route traffic to active deployments
 
----
-
-# High-Level Architecture
-
-Deployment Finished
-
-↓
-
-Artifacts Generated
-
-↓
-
-Upload Artifacts
-
-↓
-
-Store Deployment Metadata
-
-↓
-
-Generate Preview URL
-
-↓
-
-Register Reverse Proxy
-
-↓
-
-Deployment Live
+This feature should support future horizontal scaling.
 
 ---
 
-# Artifact Storage
+# Architecture
 
-Implement an abstraction layer.
+The domain system should be provider-independent.
+
+Create abstractions for:
+
+- DNS Verification
+- SSL Provider
+- Reverse Proxy Provider
+
+The application should never directly depend on Caddy or Nginx.
+
+---
+
+# Database
+
+Create a Domain schema.
+
+Fields:
+
+- id (UUID)
+- projectId
+- hostname
+- isPrimary
+- verificationStatus
+- sslStatus
+- dnsStatus
+- certificateProvider
+- verifiedAt
+- createdAt
+- updatedAt
+
+Indexes:
+
+- hostname (unique)
+- projectId
+
+---
+
+# Domain Verification
 
 Support:
 
-- Local Storage (Development)
-- MinIO
-- Amazon S3 (Future)
-- Cloudflare R2 (Future)
-- Google Cloud Storage (Future)
+- Apex Domains
+- Subdomains
 
-Storage providers should be swappable without changing business logic.
+Verification methods:
 
-Create a Storage interface.
+- DNS TXT Record
+- CNAME Record
 
----
-
-# Deployment Artifacts
-
-Store:
-
-Static Files
-
-Metadata
-
-Build Manifest
-
-Framework Information
-
-Deployment Size
-
-Deployment Hash
-
-Output Directory
-
-Checksum
-
-Created Time
+The system should generate verification instructions dynamically.
 
 ---
 
-# Preview URLs
+# DNS Checker
 
-Generate unique preview URLs.
+Implement a DNS verification service.
 
-Example:
+It should verify:
 
-project-name-randomhash.localhost
+- CNAME
+- A Record
+- TXT Record
 
-Later this should become:
+Store verification status.
 
-project-name-randomhash.kyro.dev
+Allow users to manually trigger verification.
 
-Preview URLs must be immutable.
-
-Every deployment gets its own preview URL.
+Prepare for automatic background verification.
 
 ---
 
-# Active Deployment
+# SSL
 
-Every project has:
+Create an SSL abstraction.
 
-Current Production Deployment
+Support:
 
-Previous Deployment
+- Let's Encrypt
+- Self-signed (Development)
 
-Deployment History
+Automatically issue certificates after successful domain verification.
 
-Implement active deployment switching.
+Support:
 
-Support instant rollback.
+- Renewal
+- Expiration Tracking
+- Revocation
 
 ---
 
 # Reverse Proxy
 
-Implement a reverse proxy abstraction.
+When a domain becomes verified:
 
-Support:
+Automatically register the route.
 
-- Caddy
-- Nginx
-
-Design the architecture so proxy providers can be swapped.
-
-The deployment service should never depend directly on Nginx.
-
----
-
-# Routing
+Routing:
 
 Incoming Request
 
 ↓
 
-Extract Host
+Resolve Host
 
 ↓
 
-Find Deployment
+Find Project
 
 ↓
 
-Resolve Active Deployment
+Find Active Deployment
 
 ↓
 
-Serve Build Files
+Serve Deployment
 
-↓
-
-Return Response
+No application restart should be required.
 
 ---
 
-# Static File Serving
+# Primary Domain
 
-Serve:
+Each project may have:
 
-HTML
+- One Primary Domain
+- Multiple Secondary Domains
 
-CSS
-
-JavaScript
-
-Fonts
-
-Images
-
-Assets
-
-Support proper MIME types.
-
-Support compression.
-
-Support cache headers.
+Support switching the primary domain instantly.
 
 ---
 
-# Framework Support
+# Preview Domains
 
-Support serving:
+Preview deployments should continue using generated preview URLs.
 
-React
-
-Next.js Static Export
-
-Vue
-
-Astro
-
-Vite
-
-Angular
-
-Nuxt Static
-
-Svelte
-
-Static HTML
-
-Design the architecture for future SSR support.
+Custom domains should always point to the active production deployment.
 
 ---
 
 # Rollback
 
-Implement:
+Rolling back a deployment should not require reconfiguring domains.
 
-Activate Deployment
-
-Deactivate Deployment
-
-Rollback
-
-Instant switching
-
-Rollback should never rebuild the application.
-
----
-
-# Cleanup
-
-Old deployments should remain stored.
-
-Implement configurable cleanup policies.
-
-Examples:
-
-Keep Last 20 Deployments
-
-Delete Deployments Older Than 30 Days
-
-Cleanup should never remove active deployments.
-
----
-
-# Security
-
-Prevent:
-
-Directory Traversal
-
-Invalid Hosts
-
-Unknown Preview URLs
-
-Unauthorized Access
-
-Malformed Requests
+Domains must automatically point to the newly active deployment.
 
 ---
 
@@ -273,61 +177,89 @@ Malformed Requests
 
 Create:
 
-Deployment Details
+Domains Page
 
-Preview URL Card
+Add Domain Modal
 
-Open Deployment Button
+DNS Instructions Card
 
-Copy URL Button
+Verification Status
 
-Activate Deployment
+SSL Status
 
-Rollback Deployment
+Certificate Information
 
-Deployment Status
+Primary Domain Badge
 
-Storage Information
+Delete Domain Dialog
 
-Artifact Information
+Retry Verification Button
 
----
+Refresh Status Button
 
-# Database
-
-Extend Deployment model.
-
-Add:
-
-previewUrl
-
-artifactLocation
-
-artifactSize
-
-storageProvider
-
-active
-
-activatedAt
-
-checksum
+Copy DNS Records
 
 ---
 
-# Services
+# Status
 
-Create:
+Support:
 
-Storage Service
+Pending
 
-Artifact Service
+Verifying
 
-Proxy Service
+Verified
 
-Deployment Activation Service
+SSL Issuing
 
-Deployment Routing Service
+Ready
+
+Failed
+
+Expired
+
+---
+
+# Error Handling
+
+Handle:
+
+Invalid Domain
+
+Duplicate Domain
+
+DNS Not Configured
+
+Certificate Failure
+
+Verification Timeout
+
+Reverse Proxy Failure
+
+Show meaningful error messages.
+
+---
+
+# Security
+
+Validate:
+
+Domain Ownership
+
+Duplicate Domains
+
+Reserved Domains
+
+Invalid Hostnames
+
+Prevent:
+
+Host Header Attacks
+
+Domain Hijacking
+
+Improper Certificate Issuance
 
 ---
 
@@ -335,19 +267,34 @@ Deployment Routing Service
 
 Follow:
 
-Strict TypeScript
+- Strict TypeScript
+- No any
+- SOLID Principles
+- Dependency Injection
+- Clean Architecture
+- Reusable Services
 
-No any
+---
 
-SOLID Principles
+# Folder Structure
 
-Dependency Injection
+domains/
 
-Reusable Services
+components/
 
-Feature-Based Structure
+actions/
 
-Clean Architecture
+services/
+
+providers/
+
+schemas/
+
+types/
+
+hooks/
+
+utils/
 
 ---
 
@@ -355,11 +302,11 @@ Clean Architecture
 
 Before writing code:
 
-1. Explain the serving architecture.
-2. Explain storage abstraction.
-3. Explain reverse proxy architecture.
-4. Explain preview URL generation.
-5. Explain rollback strategy.
+1. Explain the domain architecture.
+2. Explain DNS verification.
+3. Explain SSL issuance.
+4. Explain reverse proxy registration.
+5. Explain security considerations.
 
 Then generate the implementation.
 
@@ -369,21 +316,19 @@ Then generate the implementation.
 
 Do NOT implement:
 
-Live Logs
-
-Custom Domains
-
-SSL
-
 Analytics
 
-Monitoring
+Edge CDN
 
-Edge Network
+Global Load Balancer
 
-CDN
+Autoscaling
 
-Only implement deployment serving.
+Billing
+
+Monitoring Dashboard
+
+Only implement custom domains and automatic SSL.
 
 ---
 
@@ -391,10 +336,8 @@ Only implement deployment serving.
 
 After implementation:
 
-Explain every generated file.
-
-Explain how production deployment works.
-
-Suggest the next feature.
-
-Wait for further instructions.
+- Explain every generated file.
+- Explain how a custom domain becomes live.
+- Explain how SSL certificates are renewed.
+- Suggest the next feature.
+- Wait for further instructions.

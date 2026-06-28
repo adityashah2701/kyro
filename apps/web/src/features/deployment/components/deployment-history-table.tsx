@@ -14,7 +14,13 @@ import { Button } from "@/components/ui/button";
 import { cancelDeploymentAction, retryDeploymentAction } from "../actions";
 import { toast } from "sonner";
 import { useState, useEffect } from "react";
-import { Loader2 } from "lucide-react";
+import {
+  Loader2,
+  Copy,
+  ExternalLink,
+  GitBranch,
+  GitCommit,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 
 type DeploymentData = {
@@ -145,11 +151,14 @@ export function DeploymentHistoryTable({
 
             return (
               <TableRow key={d.id}>
-                <TableCell className="font-medium">
+                <TableCell className="font-semibold">
                   #{d.deploymentNumber}
                 </TableCell>
-                <TableCell className="text-muted-foreground">
-                  {d.branch}
+                <TableCell>
+                  <div className="flex items-center gap-1.5 text-muted-foreground">
+                    <GitBranch className="h-3.5 w-3.5" />
+                    <span className="truncate max-w-[120px]">{d.branch}</span>
+                  </div>
                 </TableCell>
                 <TableCell>
                   <DeploymentStatusBadge status={d.status} />
@@ -159,18 +168,48 @@ export function DeploymentHistoryTable({
                     ? `${Math.round(d.buildDuration / 1000)}s`
                     : "-"}
                 </TableCell>
-                <TableCell className="text-muted-foreground text-sm">
+                <TableCell className="text-sm">
                   {d.previewUrl ? (
-                    <a
-                      href={`http://${d.previewUrl}:8000`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-blue-500 hover:underline"
-                    >
-                      {d.previewUrl}
-                    </a>
+                    <div className="flex items-center gap-1.5 group">
+                      <a
+                        href={`http://${d.previewUrl}:8000`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-foreground hover:text-primary transition-colors truncate max-w-[150px] sm:max-w-[200px]"
+                        title={d.previewUrl}
+                      >
+                        {d.previewUrl.length > 28
+                          ? d.previewUrl.substring(0, 28) + "..."
+                          : d.previewUrl}
+                      </a>
+                      <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6"
+                          onClick={() => {
+                            navigator.clipboard.writeText(
+                              `http://${d.previewUrl}:8000`
+                            );
+                            toast.success("URL copied to clipboard");
+                          }}
+                          title="Copy URL"
+                        >
+                          <Copy className="h-3 w-3 text-muted-foreground hover:text-foreground" />
+                        </Button>
+                        <a
+                          href={`http://${d.previewUrl}:8000`}
+                          target="_blank"
+                          rel="noreferrer"
+                          title="Open link"
+                          className="p-1 hover:bg-muted rounded-md"
+                        >
+                          <ExternalLink className="h-3 w-3 text-muted-foreground hover:text-foreground" />
+                        </a>
+                      </div>
+                    </div>
                   ) : (
-                    "-"
+                    <span className="text-muted-foreground">-</span>
                   )}
                 </TableCell>
                 <TableCell className="text-muted-foreground text-sm">

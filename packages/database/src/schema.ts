@@ -132,3 +132,19 @@ export const deployment = pgTable("deployment", {
   activatedAt: timestamp("activatedAt"),
   checksum: text("checksum"),
 });
+
+export const domain = pgTable("domain", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  projectId: uuid("projectId")
+    .notNull()
+    .references(() => project.id, { onDelete: "cascade" }),
+  hostname: text("hostname").notNull().unique(),
+  isPrimary: boolean("isPrimary").notNull().default(false),
+  verificationStatus: text("verificationStatus").notNull().default("pending"), // pending, verifying, verified, failed
+  sslStatus: text("sslStatus").notNull().default("pending"), // pending, issuing, ready, failed, expired
+  dnsStatus: text("dnsStatus").notNull().default("pending"), // pending, configured, failed
+  certificateProvider: text("certificateProvider").default("mock"), // mock, letsencrypt
+  verifiedAt: timestamp("verifiedAt"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+  updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+});
