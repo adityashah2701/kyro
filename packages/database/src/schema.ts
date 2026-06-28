@@ -5,6 +5,7 @@ import {
   boolean,
   uuid,
   integer,
+  jsonb,
 } from "drizzle-orm/pg-core";
 
 export const user = pgTable("user", {
@@ -122,4 +123,5 @@ export const deployment = pgTable("deployment", {
   completedAt: timestamp("completedAt"),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
   updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+  metadata: jsonb("metadata"),
 });

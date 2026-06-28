@@ -2,9 +2,14 @@ import { Job } from "bullmq";
 import { logger } from "./logger";
 import { db, schema, eq } from "@kyro/database";
 import type { QueueJobData, DeploymentStatus } from "@kyro/shared";
-import { spawn } from "child_process";
 import fs from "fs/promises";
 import path from "path";
+
+// Services
+import { GitService } from "./services/git.service";
+import { DetectorService } from "./services/detector.service";
+import { DockerService } from "./services/docker.service";
+import { ArtifactService } from "./services/artifact.service";
 
 const updateStatus = async (
   deploymentId: string,
@@ -16,49 +21,6 @@ const updateStatus = async (
     .update(schema.deployment)
     .set({ status, updatedAt: new Date(), ...extra })
     .where(eq(schema.deployment.id, deploymentId));
-};
-
-const runDockerContainer = (
-  deploymentId: string,
-  workspacePath: string,
-): Promise<void> => {
-  return new Promise((resolve, reject) => {
-    // For Feature 06, we just spawn a mock container to prove the worker foundation works.
-    // Memory and CPU limits would be passed here via env vars.
-    const maxMemory = process.env.MAX_MEMORY || "512m";
-    const maxCpu = process.env.MAX_CPU || "1.0";
-
-    logger.info({ deploymentId, workspacePath }, "Spawning Docker container");
-
-    const dockerProcess = spawn("docker", [
-      "run",
-      "--rm",
-      `--memory=${maxMemory}`,
-      `--cpus=${maxCpu}`,
-      "-v",
-      `${workspacePath}:/workspace`,
-      "alpine",
-      "sh",
-      "-c",
-      "echo 'Initializing Workspace...' && sleep 1 && echo 'Cloning Repository...' && sleep 1 && echo 'Building Application...' && sleep 1 && echo 'Build Finished!'",
-    ]);
-
-    dockerProcess.stdout.on("data", (data) => {
-      logger.info({ deploymentId }, `[DOCKER] ${data.toString().trim()}`);
-    });
-
-    dockerProcess.stderr.on("data", (data) => {
-      logger.error({ deploymentId }, `[DOCKER ERR] ${data.toString().trim()}`);
-    });
-
-    dockerProcess.on("close", (code) => {
-      if (code === 0) {
-        resolve();
-      } else {
-        reject(new Error(`Docker container exited with code ${code}`));
-      }
-    });
-  });
 };
 
 export const processDeploymentJob = async (job: Job<QueueJobData>) => {
@@ -74,49 +36,88 @@ export const processDeploymentJob = async (job: Job<QueueJobData>) => {
     // 1. Initializing
     await updateStatus(deploymentId, "initializing", { startedAt: new Date() });
 
-    // Create workspace
+    // Fetch Deployment Data
+    const deploymentRecord = await db.query.deployment.findFirst({
+      where: eq(schema.deployment.id, deploymentId),
+    });
+
+    if (!deploymentRecord) {
+      throw new Error(`Deployment ${deploymentId} not found`);
+    }
+
+    const repoRecord = await db.query.projectRepository.findFirst({
+      where: eq(schema.projectRepository.projectId, deploymentRecord.projectId),
+    });
+
+    if (!repoRecord) {
+      throw new Error(
+        `Repository not found for project ${deploymentRecord.projectId}`,
+      );
+    }
+
+    const githubAcc = await db.query.githubAccount.findFirst({
+      where: eq(schema.githubAccount.userId, deploymentRecord.userId),
+    });
+
     await fs.mkdir(workspacePath, { recursive: true });
     logger.info(
       { deploymentId, workspacePath },
       "Created deployment workspace",
     );
 
-    // 2. Mocking the lifecycle visually for the DB (as actual clone/build is excluded in Feature 06)
-    // We update statuses artificially here, while the docker container echoes them.
+    // 2. Cloning
     await updateStatus(deploymentId, "cloning");
-    await new Promise((res) => setTimeout(res, 1000));
+    await GitService.cloneRepository(
+      repoRecord.cloneUrl,
+      deploymentRecord.branch,
+      workspacePath,
+      repoRecord.isPrivate,
+      githubAcc?.installationId,
+    );
 
+    // 3. Detecting Framework
+    const detection = await DetectorService.detect(workspacePath);
+    logger.info({ deploymentId, detection }, "Detected project configuration");
+
+    // Update the project framework in the database if it changed
+    await db
+      .update(schema.project)
+      .set({ framework: detection.framework })
+      .where(eq(schema.project.id, deploymentRecord.projectId));
+
+    // 4. Installing Dependencies
     await updateStatus(deploymentId, "installing");
-    await new Promise((res) => setTimeout(res, 1000));
+    // (Installation is handled inside the Docker execution to keep it isolated)
 
+    // 5. Building (Docker Execution handles both install and build)
     await updateStatus(deploymentId, "building");
+    await DockerService.executeBuild(deploymentId, workspacePath, detection);
 
-    // Spawn container for "Build" phase
-    await runDockerContainer(deploymentId, workspacePath);
-
+    // 6. Collecting Artifacts
     await updateStatus(deploymentId, "uploading");
-    await new Promise((res) => setTimeout(res, 1000));
+    const { buildSize, metadata } = await ArtifactService.collect(
+      workspacePath,
+      detection,
+    );
 
-    await updateStatus(deploymentId, "deploying");
-    await new Promise((res) => setTimeout(res, 1000));
-
-    // 3. Success
+    // 7. Success
     const buildDuration = Date.now() - startTime;
     await updateStatus(deploymentId, "success", {
       completedAt: new Date(),
       buildDuration,
+      metadata,
     });
 
     logger.info(
-      { deploymentId, duration: buildDuration },
+      { deploymentId, buildDuration, buildSize },
       "Deployment completed successfully",
     );
   } catch (error: any) {
     logger.error({ deploymentId, err: error }, "Deployment failed");
     await updateStatus(deploymentId, "failed", { completedAt: new Date() });
-    throw error; // Let BullMQ handle retries/failures
+    throw error;
   } finally {
-    // 4. Cleanup
+    // 8. Cleanup
     try {
       await fs.rm(workspacePath, { recursive: true, force: true });
       logger.info(

@@ -13,8 +13,9 @@ import { formatDistanceToNow } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { cancelDeploymentAction, retryDeploymentAction } from "../actions";
 import { toast } from "sonner";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Loader2 } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 type DeploymentData = {
   id: string;
@@ -34,6 +35,29 @@ export function DeploymentHistoryTable({
   projectId: string;
 }) {
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const router = useRouter();
+
+  useEffect(() => {
+    // Check if any deployment is in a pending state
+    const hasPending = deployments.some((d) =>
+      [
+        "queued",
+        "initializing",
+        "cloning",
+        "installing",
+        "building",
+        "uploading",
+        "deploying",
+      ].includes(d.status)
+    );
+
+    if (hasPending) {
+      const interval = setInterval(() => {
+        router.refresh();
+      }, 2000);
+      return () => clearInterval(interval);
+    }
+  }, [deployments, router]);
 
   if (deployments.length === 0) {
     return (

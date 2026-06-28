@@ -1,0 +1,13 @@
+procs:
+  docker:
+    shell: docker compose up
+  web:
+    shell: npm run dev -w @kyro/web
+  worker:
+    shell: npm run dev -w @kyro/worker
+  drizzle-studio:
+    shell: npx dotenv-cli -e ../../.env -- npx drizzle-kit studio
+    cwd: apps/web
+    autostart: false
+  ngrok:
+    shell: "ngrok http 3000 --url https://preevolutional-unguaranteed-parker.ngrok-free.dev"

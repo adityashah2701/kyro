@@ -8,6 +8,13 @@
       "when": 1782634274198,
       "tag": "0000_wealthy_hitman",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1782646361632,
+      "tag": "0001_pink_the_santerians",
+      "breakpoints": true
     }
   ]
 }
