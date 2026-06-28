@@ -19,6 +19,9 @@ import { GitBranch } from "lucide-react";
 import Link from "next/link";
 import { RepositoryPicker } from "@/features/github/components/repository-picker";
 import { disconnectRepository } from "@/features/github/actions";
+import { getProjectDeployments } from "@/features/deployment/services/deployment.service";
+import { DeployButton } from "@/features/deployment/components/deploy-button";
+import { DeploymentHistoryTable } from "@/features/deployment/components/deployment-history-table";
 
 export default async function ProjectDetailsPage(props: {
   params: Promise<{ projectId: string }>;
@@ -47,6 +50,19 @@ export default async function ProjectDetailsPage(props: {
     where: eq(projectRepository.projectId, params.projectId),
   });
 
+  const deployments = await getProjectDeployments(params.projectId);
+
+  // Cast deployments to match expected types roughly in history table
+  const deploymentDataList = deployments.map((d) => ({
+    id: d.id,
+    deploymentNumber: d.deploymentNumber,
+    branch: d.branch,
+    triggerType: d.triggerType,
+    status: d.status,
+    createdAt: d.createdAt,
+    buildDuration: d.buildDuration,
+  }));
+
   return (
     <div className="p-6 sm:p-10 max-w-6xl mx-auto">
       <div className="mb-6 flex items-center text-sm text-muted-foreground">
@@ -67,10 +83,16 @@ export default async function ProjectDetailsPage(props: {
           `Manage deployments and settings for ${projectData.name}`
         }
       >
-        <Button variant="outline">
-          <ExternalLink className="mr-2 h-4 w-4" />
-          Visit
-        </Button>
+        <div className="flex gap-2">
+          <DeployButton
+            projectId={params.projectId}
+            isRepositoryLinked={!!linkedRepo}
+          />
+          <Button variant="outline" size="sm">
+            <ExternalLink className="mr-2 h-4 w-4" />
+            Visit
+          </Button>
+        </div>
       </PageHeader>
 
       <Tabs defaultValue="overview" className="mt-8">
@@ -103,7 +125,9 @@ export default async function ProjectDetailsPage(props: {
                 </h3>
                 <Rocket className="h-4 w-4 text-muted-foreground" />
               </div>
-              <div className="text-2xl font-bold mt-2">0</div>
+              <div className="text-2xl font-bold mt-2">
+                {deployments.length}
+              </div>
             </div>
 
             <div className="rounded-xl border bg-card text-card-foreground shadow-sm p-6">
@@ -125,18 +149,12 @@ export default async function ProjectDetailsPage(props: {
             </div>
           </div>
 
-          <div className="mt-8 flex flex-col items-center justify-center rounded-lg border border-dashed p-12 text-center animate-in fade-in-50 duration-500 bg-muted/10">
-            <div className="mx-auto flex max-w-[420px] flex-col items-center justify-center text-center">
-              <h3 className="mt-4 text-lg font-semibold">No deployments yet</h3>
-              <p className="mb-4 mt-2 text-sm text-muted-foreground">
-                Push code to a connected repository to trigger your first
-                deployment.
-              </p>
-              <Button disabled>
-                <Rocket className="mr-2 h-4 w-4" />
-                Trigger Deployment
-              </Button>
-            </div>
+          <div className="mt-8">
+            <h3 className="text-lg font-medium mb-4">Recent Deployments</h3>
+            <DeploymentHistoryTable
+              deployments={deploymentDataList.slice(0, 5)}
+              projectId={params.projectId}
+            />
           </div>
         </TabsContent>
 
@@ -173,6 +191,14 @@ export default async function ProjectDetailsPage(props: {
                 <RepositoryPicker projectId={params.projectId} />
               </div>
             )}
+
+            <div className="mt-4">
+              <h3 className="text-lg font-medium mb-4">Deployment History</h3>
+              <DeploymentHistoryTable
+                deployments={deploymentDataList}
+                projectId={params.projectId}
+              />
+            </div>
           </div>
         </TabsContent>
 

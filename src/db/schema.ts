@@ -1,4 +1,11 @@
-import { pgTable, text, timestamp, boolean, uuid } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  text,
+  timestamp,
+  boolean,
+  uuid,
+  integer,
+} from "drizzle-orm/pg-core";
 
 export const user = pgTable("user", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -93,4 +100,26 @@ export const projectRepository = pgTable("projectRepository", {
   isPrivate: boolean("isPrivate").notNull().default(false),
   cloneUrl: text("cloneUrl").notNull(),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
+});
+
+export const deployment = pgTable("deployment", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  projectId: uuid("projectId")
+    .notNull()
+    .references(() => project.id, { onDelete: "cascade" }),
+  userId: uuid("userId")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  commitSha: text("commitSha"),
+  commitMessage: text("commitMessage"),
+  branch: text("branch").notNull(),
+  status: text("status").notNull().default("queued"), // queued, initializing, cloning, installing, building, uploading, deploying, success, failed, cancelled
+  triggerType: text("triggerType").notNull().default("manual"), // manual, push
+  deploymentNumber: integer("deploymentNumber").notNull(),
+  buildDuration: integer("buildDuration"), // in milliseconds or seconds
+  queuedAt: timestamp("queuedAt").notNull().defaultNow(),
+  startedAt: timestamp("startedAt"),
+  completedAt: timestamp("completedAt"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+  updatedAt: timestamp("updatedAt").notNull().defaultNow(),
 });
