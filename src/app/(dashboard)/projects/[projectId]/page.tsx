@@ -1,6 +1,6 @@
 import { PageHeader } from "@/components/layout/page-header";
 import { db } from "@/db";
-import { project } from "@/db/schema";
+import { project, projectRepository } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
@@ -15,7 +15,10 @@ import {
   Activity,
   ExternalLink,
 } from "lucide-react";
+import { GitBranch } from "lucide-react";
 import Link from "next/link";
+import { RepositoryPicker } from "@/features/github/components/repository-picker";
+import { disconnectRepository } from "@/features/github/actions";
 
 export default async function ProjectDetailsPage(props: {
   params: Promise<{ projectId: string }>;
@@ -39,6 +42,10 @@ export default async function ProjectDetailsPage(props: {
   if (!projectData) {
     notFound();
   }
+
+  const linkedRepo = await db.query.projectRepository.findFirst({
+    where: eq(projectRepository.projectId, params.projectId),
+  });
 
   return (
     <div className="p-6 sm:p-10 max-w-6xl mx-auto">
@@ -134,8 +141,38 @@ export default async function ProjectDetailsPage(props: {
         </TabsContent>
 
         <TabsContent value="deployments">
-          <div className="text-sm text-muted-foreground p-4 border rounded-md">
-            Deployments content placeholder
+          <div className="flex flex-col gap-6 animate-in fade-in-50 duration-500">
+            {linkedRepo ? (
+              <div className="rounded-xl border bg-card text-card-foreground shadow-sm p-6 max-w-2xl">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <GitBranch className="h-6 w-6" />
+                    <div>
+                      <h3 className="font-semibold text-lg">
+                        {linkedRepo.owner}/{linkedRepo.repositoryName}
+                      </h3>
+                      <p className="text-sm text-muted-foreground">
+                        Branch: {linkedRepo.selectedBranch}
+                      </p>
+                    </div>
+                  </div>
+                  <form
+                    action={async () => {
+                      "use server";
+                      await disconnectRepository(params.projectId);
+                    }}
+                  >
+                    <Button variant="destructive" size="sm">
+                      Disconnect
+                    </Button>
+                  </form>
+                </div>
+              </div>
+            ) : (
+              <div className="max-w-2xl">
+                <RepositoryPicker projectId={params.projectId} />
+              </div>
+            )}
           </div>
         </TabsContent>
 

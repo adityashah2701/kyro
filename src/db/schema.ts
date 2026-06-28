@@ -65,3 +65,32 @@ export const project = pgTable("project", {
   createdAt: timestamp("createdAt").notNull().defaultNow(),
   updatedAt: timestamp("updatedAt").notNull().defaultNow(),
 });
+
+export const githubAccount = pgTable("githubAccount", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: uuid("userId")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  githubUserId: text("githubUserId"),
+  username: text("username").notNull(),
+  avatar: text("avatar"),
+  installationId: text("installationId").notNull().unique(),
+  connectedAt: timestamp("connectedAt").notNull().defaultNow(),
+  updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+});
+
+export const projectRepository = pgTable("projectRepository", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  projectId: uuid("projectId")
+    .notNull()
+    .references(() => project.id, { onDelete: "cascade" })
+    .unique(),
+  repositoryId: text("repositoryId").notNull(),
+  repositoryName: text("repositoryName").notNull(),
+  owner: text("owner").notNull(),
+  defaultBranch: text("defaultBranch").notNull().default("main"),
+  selectedBranch: text("selectedBranch").notNull().default("main"),
+  isPrivate: boolean("isPrivate").notNull().default(false),
+  cloneUrl: text("cloneUrl").notNull(),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+});

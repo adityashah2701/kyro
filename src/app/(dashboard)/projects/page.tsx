@@ -9,17 +9,33 @@ import { headers } from "next/headers";
 import { ProjectCard } from "@/features/projects/components/project-card";
 import { CreateProjectModal } from "@/features/projects/components/create-project-modal";
 import { ProjectsClient } from "./client"; // A client component to manage modal state and search input
+import { connectGitHub } from "@/features/github/actions";
+import { redirect } from "next/navigation";
 
 export const metadata = {
   title: "Projects | Kyro",
 };
 
 export default async function ProjectsPage(props: {
-  searchParams: Promise<{ q?: string; sort?: string }>;
+  searchParams: Promise<{
+    q?: string;
+    sort?: string;
+    installation_id?: string;
+  }>;
 }) {
   const searchParams = await props.searchParams;
   const q = searchParams.q || "";
   const sort = searchParams.sort || "newest";
+  const installationId = searchParams.installation_id;
+
+  if (installationId) {
+    try {
+      await connectGitHub(installationId);
+    } catch (e) {
+      console.error("Failed to connect GitHub:", e);
+    }
+    redirect("/projects");
+  }
 
   const session = await auth.api.getSession({
     headers: await headers(),
