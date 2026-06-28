@@ -25,9 +25,8 @@ export class DetectorService {
     } catch (e) {
       logger.warn(
         { workspacePath },
-        "No package.json found or failed to parse",
+        "No package.json found or failed to parse, treating as static site",
       );
-      throw new Error("Missing or invalid package.json in repository root");
     }
 
     const packageManager = await this.detectPackageManager(workspacePath);
@@ -44,7 +43,7 @@ export class DetectorService {
       framework,
       packageManager,
       nodeVersion,
-      installCommand: this.getInstallCommand(packageManager),
+      installCommand: this.getInstallCommand(packageManager, packageJson),
       buildCommand: this.getBuildCommand(packageManager, packageJson),
       outputDirectory,
     };
@@ -154,7 +153,7 @@ export class DetectorService {
     }
 
     // Fallback static HTML check
-    if ((await checkExists("index.html")) && !packageJson.scripts?.build) {
+    if (await checkExists("index.html")) {
       return { framework: "Static HTML", outputDirectory: "." };
     }
 
@@ -163,7 +162,11 @@ export class DetectorService {
 
   private static getInstallCommand(
     packageManager: "npm" | "yarn" | "pnpm" | "bun",
+    packageJson: any,
   ): string {
+    if (Object.keys(packageJson).length === 0) {
+      return "echo 'Skipping install, no package.json found'";
+    }
     switch (packageManager) {
       case "npm":
         return "npm install";

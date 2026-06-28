@@ -96,24 +96,51 @@ export class GitService {
     // Ensure destination exists
     await fs.mkdir(destinationPath, { recursive: true });
 
-    // Clone the repo (shallow clone for speed)
-    await git.clone(finalCloneUrl, destinationPath, [
-      "--branch",
-      branch,
-      "--depth",
-      "1",
-    ]);
+    try {
+      // Clone the repo (shallow clone for speed)
+      await git.clone(finalCloneUrl, destinationPath, [
+        "--branch",
+        branch,
+        "--depth",
+        "1",
+      ]);
+    } catch (e: any) {
+      if (e.message && e.message.includes("Remote branch")) {
+        logger.warn(
+          { branch },
+          "Branch not found, falling back to default branch",
+        );
+        // Retry without specifying branch
+        await git.clone(finalCloneUrl, destinationPath, ["--depth", "1"]);
+      } else {
+        throw e;
+      }
+    }
 
     logger.info({ destinationPath }, "Repository cloned successfully");
 
     // Fetch the latest commit info
-    const gitDest = simpleGit(destinationPath);
-    const log = await gitDest.log({ maxCount: 1 });
-    const latestCommit = log.latest;
+    let commitSha = "";
+    let commitMessage = "";
+
+    try {
+      const gitDest = simpleGit(destinationPath);
+      const log = await gitDest.log({ maxCount: 1 });
+      const latestCommit = log.latest;
+      if (latestCommit) {
+        commitSha = latestCommit.hash;
+        commitMessage = latestCommit.message;
+      }
+    } catch (e: any) {
+      logger.warn(
+        { err: e.message },
+        "Failed to fetch commit info. Repository might be empty.",
+      );
+    }
 
     return {
-      commitSha: latestCommit?.hash || "",
-      commitMessage: latestCommit?.message || "",
+      commitSha,
+      commitMessage,
     };
   }
 }

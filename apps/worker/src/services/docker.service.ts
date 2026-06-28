@@ -33,6 +33,11 @@ export class DockerService {
 set -e
 
 echo "=== Setup Environment ==="
+# Copy files to an internal directory to avoid Docker Desktop macOS volume mount issues during npm install
+mkdir -p /app
+cp -a /workspace/. /app/
+cd /app
+
 corepack enable || true
 
 if [ "${detection.packageManager}" = "bun" ]; then
@@ -45,6 +50,9 @@ ${detection.installCommand}
 echo "=== Building Application ==="
 ${detection.buildCommand}
 
+echo "=== Extracting Output ==="
+# Copy the built output back to the mounted workspace
+cp -a /app/${detection.outputDirectory} /workspace/
 echo "=== Build Finished successfully ==="
 `;
 
