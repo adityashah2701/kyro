@@ -50,3 +50,18 @@ export const verification = pgTable("verification", {
   createdAt: timestamp("createdAt"),
   updatedAt: timestamp("updatedAt"),
 });
+
+export const project = pgTable("project", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: uuid("userId")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  slug: text("slug").notNull().unique(),
+  description: text("description"),
+  framework: text("framework").notNull().default("Other"),
+  visibility: text("visibility").notNull().default("private"),
+  status: text("status").notNull().default("active"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+  updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+});
