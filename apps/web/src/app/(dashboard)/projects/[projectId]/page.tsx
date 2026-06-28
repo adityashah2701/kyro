@@ -23,6 +23,8 @@ import { DeployButton } from "@/features/deployment/components/deploy-button";
 import { DeploymentHistoryTable } from "@/features/deployment/components/deployment-history-table";
 import { DomainsTab } from "@/features/domains/components/domains-tab";
 import { DomainService } from "@/features/domains/services/domain.service";
+import { EnvTab } from "@/features/environment/components/env-tab";
+import { EnvService } from "@/features/environment/services/env.service";
 
 export default async function ProjectDetailsPage(props: {
   params: Promise<{ projectId: string }>;
@@ -69,6 +71,7 @@ export default async function ProjectDetailsPage(props: {
   const projectDomains = await DomainService.getProjectDomains(
     params.projectId
   );
+  const envVariables = await EnvService.getVariables(params.projectId);
   const verifiedPrimaryDomain = projectDomains.find(
     (d) => d.isPrimary && d.verificationStatus === "verified"
   );
@@ -228,9 +231,7 @@ export default async function ProjectDetailsPage(props: {
         </TabsContent>
 
         <TabsContent value="env">
-          <div className="text-sm text-muted-foreground p-4 border rounded-md">
-            Environment variables placeholder
-          </div>
+          <EnvTab variables={envVariables} projectId={params.projectId} />
         </TabsContent>
 
         <TabsContent value="settings">

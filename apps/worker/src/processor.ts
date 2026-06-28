@@ -1,6 +1,6 @@
 import { Job } from "bullmq";
 import { logger } from "./logger";
-import { db, schema, eq } from "@kyro/database";
+import { db, schema, eq, and } from "@kyro/database";
 import type { QueueJobData, DeploymentStatus } from "@kyro/shared";
 import fs from "fs/promises";
 import path from "path";
@@ -10,6 +10,7 @@ import { GitService } from "./services/git.service";
 import { DetectorService } from "./services/detector.service";
 import { DockerService } from "./services/docker.service";
 import { ArtifactService } from "./services/artifact.service";
+import { decrypt } from "./crypto/encryption";
 
 const updateStatus = async (
   deploymentId: string,
@@ -95,7 +96,42 @@ export const processDeploymentJob = async (job: Job<QueueJobData>) => {
     await updateStatus(deploymentId, "installing");
     // (Installation is handled inside the Docker execution to keep it isolated)
 
-    // 5. Building (Docker Execution handles both install and build)
+    // 5. Fetch & write environment variables
+    const envVarRows = await db.query.environmentVariable.findMany({
+      where: and(
+        eq(schema.environmentVariable.projectId, deploymentRecord.projectId),
+        eq(
+          schema.environmentVariable.environment,
+          deploymentRecord.branch === repoRecord.defaultBranch
+            ? "production"
+            : "preview",
+        ),
+      ),
+    });
+
+    const envRecord: Record<string, string> = {};
+    for (const row of envVarRows) {
+      try {
+        envRecord[row.key] = decrypt(row.encryptedValue);
+      } catch {
+        logger.warn(
+          { key: row.key },
+          "Could not decrypt env variable, skipping",
+        );
+      }
+    }
+
+    const envFilePath = path.join(workspacePath, ".env");
+    const envFileContent = Object.entries(envRecord)
+      .map(([k, v]) => `${k}=${v}`)
+      .join("\n");
+    await fs.writeFile(envFilePath, envFileContent, { mode: 0o600 });
+    logger.info(
+      { deploymentId, varCount: envVarRows.length },
+      "Wrote .env file",
+    );
+
+    // 6. Building (Docker Execution handles both install and build)
     await updateStatus(deploymentId, "building");
     await DockerService.executeBuild(deploymentId, workspacePath, detection);
 

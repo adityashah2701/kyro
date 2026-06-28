@@ -10,6 +10,7 @@ async function test() {
       .values({
         projectId: project.id,
         userId: project.userId,
+        deploymentNumber: 1,
         triggerType: "manual",
         branch: "main",
         status: "queued",

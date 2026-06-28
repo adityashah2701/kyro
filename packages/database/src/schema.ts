@@ -148,3 +148,19 @@ export const domain = pgTable("domain", {
   createdAt: timestamp("createdAt").notNull().defaultNow(),
   updatedAt: timestamp("updatedAt").notNull().defaultNow(),
 });
+
+export const environmentVariable = pgTable("environmentVariable", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  projectId: uuid("projectId")
+    .notNull()
+    .references(() => project.id, { onDelete: "cascade" }),
+  key: text("key").notNull(),
+  encryptedValue: text("encryptedValue").notNull(),
+  environment: text("environment").notNull().default("production"), // development, preview, production
+  isSecret: boolean("isSecret").notNull().default(false),
+  createdBy: uuid("createdBy")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+  updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+});
