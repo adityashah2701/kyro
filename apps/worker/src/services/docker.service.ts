@@ -52,7 +52,19 @@ ${detection.buildCommand}
 
 echo "=== Extracting Output ==="
 # Copy the built output back to the mounted workspace
-cp -a /app/${detection.outputDirectory} /workspace/
+if [ "${detection.outputDirectory}" = "." ] || [ "${detection.outputDirectory}" = "" ]; then
+  cp -a /app/. /workspace/
+else
+  if [ -e "/app/${detection.outputDirectory}" ]; then
+    cp -a /app/${detection.outputDirectory} /workspace/
+  else
+    echo "Warning: Output directory '${detection.outputDirectory}' not found. Proceeding with existing files."
+  fi
+  # Always copy node_modules back so the runtime has the installed dependencies
+  if [ -d "/app/node_modules" ]; then
+    cp -a /app/node_modules /workspace/
+  fi
+fi
 echo "=== Build Finished successfully ==="
 `;
 

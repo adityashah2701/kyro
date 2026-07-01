@@ -10,7 +10,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Github, Loader2, AlertCircle, ShieldCheck } from "lucide-react";
+import { GitBranch, Loader2, AlertCircle, ShieldCheck } from "lucide-react";
 
 export function LoginForm() {
   const [isLoading, setIsLoading] = useState(false);
@@ -64,7 +64,7 @@ export function LoginForm() {
           {isLoading ? (
             <Loader2 className="size-4 animate-spin" />
           ) : (
-            <Github className="size-4" />
+            <GitBranch className="size-4" />
           )}
           {isLoading ? "Redirecting…" : "Continue with GitHub"}
         </Button>

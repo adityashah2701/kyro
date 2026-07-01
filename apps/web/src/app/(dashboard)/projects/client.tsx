@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 "use client";
 
 import { useState, useEffect } from "react";
@@ -20,7 +21,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
 import { staggerContainer } from "@/lib/motion";
 import { ProjectCard } from "@/features/projects/components/project-card";
-import { CreateProjectModal } from "@/features/projects/components/create-project-modal";
+import { ProjectWizardDialog } from "@/features/projects/components/wizard/project-wizard-dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -85,13 +86,21 @@ export function ProjectsClient({
 
   const handleSearch = (term: string) => {
     const params = new URLSearchParams(searchParams);
-    term ? params.set("q", term) : params.delete("q");
+    if (term) {
+      params.set("q", term);
+    } else {
+      params.delete("q");
+    }
     router.replace(`${pathname}?${params.toString()}`);
   };
 
   const handleSort = (sort: string) => {
     const params = new URLSearchParams(searchParams);
-    sort !== "newest" ? params.set("sort", sort) : params.delete("sort");
+    if (sort !== "newest") {
+      params.set("sort", sort);
+    } else {
+      params.delete("sort");
+    }
     router.replace(`${pathname}?${params.toString()}`);
   };
 
@@ -221,7 +230,7 @@ export function ProjectsClient({
         </motion.div>
       )}
 
-      <CreateProjectModal open={isModalOpen} onOpenChange={setIsModalOpen} />
+      <ProjectWizardDialog open={isModalOpen} onOpenChange={setIsModalOpen} />
     </PageContainer>
   );
 }

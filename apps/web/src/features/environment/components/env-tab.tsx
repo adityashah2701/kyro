@@ -294,9 +294,11 @@ export function EnvTab({ variables, projectId }: Props) {
     setDeletingId(id);
     const result = await deleteVariableAction(id, projectId);
     setDeletingId(null);
-    result.success
-      ? toast.success(`"${key}" deleted.`)
-      : toast.error(result.error ?? "Failed.");
+    if (result.success) {
+      toast.success(`"${key}" deleted.`);
+    } else {
+      toast.error(result.error ?? "Failed.");
+    }
   }
 
   function handleCopy(value: string, key: string) {
@@ -1004,7 +1006,11 @@ export function EnvTab({ variables, projectId }: Props) {
                         onChange={() =>
                           setSelectedIds((p) => {
                             const n = new Set(p);
-                            n.has(v.id) ? n.delete(v.id) : n.add(v.id);
+                            if (n.has(v.id)) {
+                              n.delete(v.id);
+                            } else {
+                              n.add(v.id);
+                            }
                             return n;
                           })
                         }

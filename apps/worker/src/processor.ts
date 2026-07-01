@@ -60,6 +60,14 @@ export const processDeploymentJob = async (job: Job<QueueJobData>) => {
       where: eq(schema.githubAccount.userId, deploymentRecord.userId),
     });
 
+    const projectRecord = await db.query.project.findFirst({
+      where: eq(schema.project.id, deploymentRecord.projectId),
+    });
+
+    if (!projectRecord) {
+      throw new Error(`Project ${deploymentRecord.projectId} not found`);
+    }
+
     await fs.mkdir(workspacePath, { recursive: true });
     logger.info(
       { deploymentId, workspacePath },
@@ -84,7 +92,19 @@ export const processDeploymentJob = async (job: Job<QueueJobData>) => {
 
     // 3. Detecting Framework
     const detection = await DetectorService.detect(workspacePath);
-    logger.info({ deploymentId, detection }, "Detected project configuration");
+
+    // Override detected values with project explicit configurations if they exist
+    if (projectRecord.installCommand !== null) {
+      detection.installCommand = projectRecord.installCommand;
+    }
+    if (projectRecord.buildCommand !== null) {
+      detection.buildCommand = projectRecord.buildCommand;
+    }
+    if (projectRecord.outputDirectory !== null) {
+      detection.outputDirectory = projectRecord.outputDirectory;
+    }
+
+    logger.info({ deploymentId, detection }, "Final project configuration");
 
     // Update the project framework in the database if it changed
     await db

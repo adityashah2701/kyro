@@ -45,6 +45,11 @@ export async function createProject(data: CreateProjectInput) {
         slug: parsedData.data.slug,
         description: parsedData.data.description || null,
         framework: parsedData.data.framework,
+        buildCommand: parsedData.data.buildCommand || null,
+        installCommand: parsedData.data.installCommand || null,
+        startCommand: parsedData.data.startCommand || null,
+        outputDirectory: parsedData.data.outputDirectory || null,
+        rootDirectory: parsedData.data.rootDirectory || "/",
         visibility: parsedData.data.visibility,
       })
       .returning();

@@ -15,6 +15,11 @@ export const createProjectSchema = z.object({
     ),
   description: z.string().max(255, "Description is too long").optional(),
   framework: z.string().min(1, "Framework is required"),
+  buildCommand: z.string().optional(),
+  installCommand: z.string().optional(),
+  startCommand: z.string().optional(),
+  outputDirectory: z.string().optional(),
+  rootDirectory: z.string().optional(),
   visibility: z.enum(["public", "private"]),
 });
 
