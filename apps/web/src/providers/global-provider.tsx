@@ -1,5 +1,7 @@
 "use client";
 
+import { MotionConfig } from "framer-motion";
+
 import { ThemeProvider } from "./theme-provider";
 import { QueryProvider } from "./query-provider";
 
@@ -15,8 +17,10 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
       disableTransitionOnChange
     >
       <QueryProvider>
-        <TooltipProvider>{children}</TooltipProvider>
-        <Toaster position="bottom-right" />
+        <MotionConfig reducedMotion="user">
+          <TooltipProvider>{children}</TooltipProvider>
+        </MotionConfig>
+        <Toaster position="bottom-right" richColors closeButton />
       </QueryProvider>
     </ThemeProvider>
   );

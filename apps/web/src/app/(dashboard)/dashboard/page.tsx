@@ -1,130 +1,203 @@
-"use client";
-
-import { useSession } from "@/features/auth/lib/auth-client";
-import { Button } from "@/components/ui/button";
+import Link from "next/link";
+import { formatDistanceToNow } from "date-fns";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+  Plus,
+  FolderOpen,
+  Rocket,
+  CircleCheck,
+  Radio,
+  ArrowRight,
+  GitBranch,
+} from "lucide-react";
+
+import { db } from "@kyro/database";
+import { project, deployment } from "@kyro/database/schema";
+import { eq, and, ne, desc } from "@kyro/database";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
+
+import { PageContainer } from "@/components/layout/page-container";
 import { PageHeader } from "@/components/layout/page-header";
-import { Loader2, Plus, ArrowUpRight, Box, Activity } from "lucide-react";
-import { motion, type Variants } from "framer-motion";
+import { SectionHeader } from "@/components/layout/section";
+import { Button } from "@/components/ui/button";
+import { StatCard } from "@/components/ui/stat-card";
+import { EmptyState } from "@/components/ui/empty-state";
+import { DeploymentStatusBadge } from "@/features/deployment/components/deployment-status-badge";
 
-const container: Variants = {
-  hidden: { opacity: 0 },
-  show: {
-    opacity: 1,
-    transition: { staggerChildren: 0.1 },
-  },
-};
+export const metadata = { title: "Dashboard | Kyro" };
 
-const item: Variants = {
-  hidden: { opacity: 0, y: 20 },
-  show: {
-    opacity: 1,
-    y: 0,
-    transition: { type: "spring", stiffness: 300, damping: 24 },
-  },
-};
+export default async function DashboardPage() {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session?.user) redirect("/login");
 
-export default function DashboardPage() {
-  const { data: session, isPending } = useSession();
+  const userId = session.user.id;
 
-  if (isPending) {
-    return (
-      <div className="flex h-[50vh] items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
+  // Real data — read-only queries over existing tables, no schema/API changes.
+  const [projects, deployments] = await Promise.all([
+    db.query.project.findMany({
+      where: and(eq(project.userId, userId), ne(project.status, "archived")),
+      orderBy: (p, { desc: d }) => [d(p.updatedAt)],
+    }),
+    db.query.deployment.findMany({
+      where: eq(deployment.userId, userId),
+      orderBy: [desc(deployment.createdAt)],
+    }),
+  ]);
+
+  const projectsById = new Map(projects.map((p) => [p.id, p]));
+  const successful = deployments.filter((d) => d.status === "success").length;
+  const active = deployments.filter((d) => d.active).length;
+  const recentProjects = projects.slice(0, 4);
+  const recentDeployments = deployments.slice(0, 5);
+
+  const firstName = session.user.name?.split(" ")[0] || "there";
 
   return (
-    <div className="p-6 sm:p-10 max-w-6xl mx-auto">
+    <PageContainer className="space-y-8">
       <PageHeader
         title="Dashboard"
-        description={`Welcome back, ${session?.user?.name?.split(" ")[0] || "User"}`}
+        description={`Welcome back, ${firstName}. Here's what's happening across your projects.`}
       >
-        <Button>
-          <Plus className="mr-2 h-4 w-4" />
+        <Button nativeButton={false} render={<Link href="/projects?new=1" />}>
+          <Plus className="size-4" />
           New Project
         </Button>
       </PageHeader>
 
-      <motion.div
-        variants={container}
-        initial="hidden"
-        animate="show"
-        className="space-y-8 mt-6"
-      >
-        {/* Statistics Cards */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <motion.div variants={item}>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Active Projects
-                </CardTitle>
-                <Activity className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">3</div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  +1 from last month
-                </p>
-              </CardContent>
-            </Card>
-          </motion.div>
-          <motion.div variants={item}>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Total Deployments
-                </CardTitle>
-                <ArrowUpRight className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">128</div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  +12% from last week
-                </p>
-              </CardContent>
-            </Card>
-          </motion.div>
-        </div>
+      {/* Stats */}
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <StatCard
+          label="Projects"
+          value={projects.length}
+          icon={FolderOpen}
+          accent
+        />
+        <StatCard
+          label="Deployments"
+          value={deployments.length}
+          icon={Rocket}
+        />
+        <StatCard label="Successful" value={successful} icon={CircleCheck} />
+        <StatCard label="Active" value={active} icon={Radio} />
+      </div>
 
-        {/* Recent Projects Placeholder */}
-        <motion.div variants={item} className="space-y-4">
-          <h2 className="text-lg font-semibold tracking-tight">
-            Recent Projects
-          </h2>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {[1, 2, 3].map((i) => (
-              <Card
-                key={i}
-                className="hover:bg-muted/50 transition-colors cursor-pointer"
+      <div className="grid gap-8 lg:grid-cols-2">
+        {/* Recent projects */}
+        <section className="space-y-4">
+          <SectionHeader
+            title="Recent Projects"
+            action={
+              <Button
+                variant="ghost"
+                size="sm"
+                nativeButton={false}
+                render={<Link href="/projects" />}
               >
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                        <Box className="h-4 w-4" />
-                      </div>
-                      project-name-{i}
-                    </CardTitle>
-                    <div className="h-2 w-2 rounded-full bg-green-500" />
+                View all
+                <ArrowRight className="size-3.5" />
+              </Button>
+            }
+          />
+          {recentProjects.length === 0 ? (
+            <EmptyState
+              icon={FolderOpen}
+              title="No projects yet"
+              description="Create your first project to start deploying."
+              action={
+                <Button
+                  size="sm"
+                  nativeButton={false}
+                  render={<Link href="/projects?new=1" />}
+                >
+                  <Plus className="size-4" />
+                  New Project
+                </Button>
+              }
+            />
+          ) : (
+            <div className="divide-y overflow-hidden rounded-xl ring-1 ring-foreground/10">
+              {recentProjects.map((p) => (
+                <Link
+                  key={p.id}
+                  href={`/projects/${p.id}`}
+                  className="flex items-center gap-3 bg-card px-4 py-3 transition-colors hover:bg-muted/50"
+                >
+                  <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-brand/10 text-brand">
+                    <FolderOpen className="size-4" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">{p.name}</p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {p.framework} ·{" "}
+                      {formatDistanceToNow(new Date(p.updatedAt), {
+                        addSuffix: true,
+                      })}
+                    </p>
                   </div>
-                  <CardDescription className="pt-2">
-                    Deployed just now
-                  </CardDescription>
-                </CardHeader>
-              </Card>
-            ))}
-          </div>
-        </motion.div>
-      </motion.div>
-    </div>
+                  <ArrowRight className="size-4 shrink-0 text-muted-foreground" />
+                </Link>
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* Recent deployments */}
+        <section className="space-y-4">
+          <SectionHeader title="Recent Deployments" />
+          {recentDeployments.length === 0 ? (
+            <EmptyState
+              icon={Rocket}
+              title="No deployments yet"
+              description="Link a repository and deploy to see activity here."
+            />
+          ) : (
+            <div className="divide-y overflow-hidden rounded-xl ring-1 ring-foreground/10">
+              {recentDeployments.map((d) => {
+                const proj = projectsById.get(d.projectId);
+                const inner = (
+                  <>
+                    <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                      <GitBranch className="size-4" />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">
+                        {proj?.name ?? "Project"}{" "}
+                        <span className="text-muted-foreground">
+                          #{d.deploymentNumber}
+                        </span>
+                      </p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {d.branch} ·{" "}
+                        {formatDistanceToNow(new Date(d.createdAt), {
+                          addSuffix: true,
+                        })}
+                      </p>
+                    </div>
+                    <DeploymentStatusBadge status={d.status} />
+                  </>
+                );
+                return proj ? (
+                  <Link
+                    key={d.id}
+                    href={`/projects/${d.projectId}`}
+                    className="flex items-center gap-3 bg-card px-4 py-3 transition-colors hover:bg-muted/50"
+                  >
+                    {inner}
+                  </Link>
+                ) : (
+                  <div
+                    key={d.id}
+                    className="flex items-center gap-3 bg-card px-4 py-3"
+                  >
+                    {inner}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
+      </div>
+    </PageContainer>
   );
 }

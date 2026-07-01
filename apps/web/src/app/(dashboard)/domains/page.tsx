@@ -1,35 +1,31 @@
-"use client";
+import Link from "next/link";
+import { Globe, FolderOpen } from "lucide-react";
 
+import { PageContainer } from "@/components/layout/page-container";
 import { PageHeader } from "@/components/layout/page-header";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+
+export const metadata = { title: "Domains | Kyro" };
 
 export default function DomainsPage() {
   return (
-    <div className="p-6 sm:p-10 max-w-6xl mx-auto">
+    <PageContainer>
       <PageHeader
         title="Domains"
-        description="Manage your custom domains and SSL certificates."
-      >
-        <Button>
-          <Plus className="mr-2 h-4 w-4" />
-          Add Domain
-        </Button>
-      </PageHeader>
-
-      <div className="mt-8 flex flex-col items-center justify-center rounded-lg border border-dashed p-12 text-center animate-in fade-in-50 duration-500">
-        <div className="mx-auto flex max-w-[420px] flex-col items-center justify-center text-center">
-          <h3 className="mt-4 text-lg font-semibold">No domains configured</h3>
-          <p className="mb-4 mt-2 text-sm text-muted-foreground">
-            Connect a custom domain to your projects to make them accessible to
-            the world.
-          </p>
-          <Button>
-            <Plus className="mr-2 h-4 w-4" />
-            Add Custom Domain
+        description="Manage custom domains and SSL certificates."
+      />
+      <EmptyState
+        icon={Globe}
+        title="No domains configured"
+        description="Custom domains are attached to a project. Open a project's Domains tab to connect a domain and configure DNS."
+        action={
+          <Button nativeButton={false} render={<Link href="/projects" />}>
+            <FolderOpen className="size-4" />
+            Go to Projects
           </Button>
-        </div>
-      </div>
-    </div>
+        }
+      />
+    </PageContainer>
   );
 }

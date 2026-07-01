@@ -11,16 +11,13 @@ import {
 import { DeploymentStatusBadge } from "./deployment-status-badge";
 import { formatDistanceToNow } from "date-fns";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { CopyButton } from "@/components/ui/copy-button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { cancelDeploymentAction, retryDeploymentAction } from "../actions";
 import { toast } from "sonner";
 import { useState, useEffect } from "react";
-import {
-  Loader2,
-  Copy,
-  ExternalLink,
-  GitBranch,
-  GitCommit,
-} from "lucide-react";
+import { Loader2, ExternalLink, GitBranch, Rocket } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 type DeploymentData = {
@@ -69,12 +66,11 @@ export function DeploymentHistoryTable({
 
   if (deployments.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center p-8 border rounded-lg bg-card text-center">
-        <p className="text-muted-foreground">No deployments found.</p>
-        <p className="text-sm text-muted-foreground mt-1">
-          Deploy this project to see the history here.
-        </p>
-      </div>
+      <EmptyState
+        icon={Rocket}
+        title="No deployments yet"
+        description="Deploy this project to see its build history here."
+      />
     );
   }
 
@@ -122,8 +118,8 @@ export function DeploymentHistoryTable({
   };
 
   return (
-    <div className="border rounded-lg overflow-hidden bg-card">
-      <Table>
+    <div className="overflow-x-auto rounded-xl bg-card ring-1 ring-foreground/10">
+      <Table className="min-w-[720px]">
         <TableHeader>
           <TableRow>
             <TableHead>Deployment</TableHead>
@@ -182,29 +178,22 @@ export function DeploymentHistoryTable({
                           ? d.previewUrl.substring(0, 28) + "..."
                           : d.previewUrl}
                       </a>
-                      <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6"
-                          onClick={() => {
-                            navigator.clipboard.writeText(
-                              `http://${d.previewUrl}:8000`
-                            );
-                            toast.success("URL copied to clipboard");
-                          }}
-                          title="Copy URL"
-                        >
-                          <Copy className="h-3 w-3 text-muted-foreground hover:text-foreground" />
-                        </Button>
+                      <div className="flex items-center opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+                        <CopyButton
+                          value={`http://${d.previewUrl}:8000`}
+                          size="icon-xs"
+                          label="Copy URL"
+                          toastMessage="URL copied to clipboard"
+                        />
                         <a
                           href={`http://${d.previewUrl}:8000`}
                           target="_blank"
                           rel="noreferrer"
                           title="Open link"
-                          className="p-1 hover:bg-muted rounded-md"
+                          aria-label="Open preview in new tab"
+                          className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
                         >
-                          <ExternalLink className="h-3 w-3 text-muted-foreground hover:text-foreground" />
+                          <ExternalLink className="size-3" />
                         </a>
                       </div>
                     </div>
@@ -252,9 +241,9 @@ export function DeploymentHistoryTable({
                         </Button>
                       )}
                       {d.active && (
-                        <span className="text-xs font-semibold text-green-600 bg-green-100 px-2 py-1 rounded ml-2">
+                        <Badge className="ml-2 border-0 bg-success/10 text-success">
                           Active
-                        </span>
+                        </Badge>
                       )}
                     </>
                   )}

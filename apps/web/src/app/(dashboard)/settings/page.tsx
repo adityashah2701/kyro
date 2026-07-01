@@ -1,4 +1,5 @@
 import { PageHeader } from "@/components/layout/page-header";
+import { PageContainer } from "@/components/layout/page-container";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { GitHubConnectCard } from "@/features/github/components/github-connect-card";
 import { db } from "@kyro/database";
@@ -38,13 +39,13 @@ export default async function SettingsPage(props: {
   const isConnected = !!ghAccount;
 
   return (
-    <div className="p-6 sm:p-10 max-w-6xl mx-auto">
+    <PageContainer>
       <PageHeader
         title="Settings"
         description="Manage your account settings and preferences."
       />
 
-      <Tabs defaultValue="general" className="mt-6">
+      <Tabs defaultValue="general" className="mt-2">
         <TabsList>
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="billing">Billing</TabsTrigger>
@@ -52,7 +53,7 @@ export default async function SettingsPage(props: {
           <TabsTrigger value="api">API Keys</TabsTrigger>
         </TabsList>
         <TabsContent value="general" className="mt-6">
-          <div className="flex flex-col gap-6 animate-in fade-in-50 duration-500">
+          <div className="flex max-w-3xl flex-col gap-6">
             <GitHubConnectCard
               isConnected={isConnected}
               username={ghAccount?.username}
@@ -60,17 +61,31 @@ export default async function SettingsPage(props: {
               installationUrl={process.env.GITHUB_APP_INSTALLATION_URL || "#"}
             />
 
-            <div className="rounded-lg border p-6">
-              <h3 className="text-lg font-medium">Profile Settings</h3>
-              <p className="text-sm text-muted-foreground mt-1">
-                Update your personal information.
+            <div className="rounded-xl bg-card p-6 ring-1 ring-foreground/10">
+              <h2 className="text-base font-semibold tracking-tight">
+                Profile
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Your personal account information.
               </p>
-              {/* Form placeholder */}
-              <div className="mt-4 h-32 rounded bg-muted/50" />
+              <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+                <div>
+                  <dt className="text-xs text-muted-foreground">Name</dt>
+                  <dd className="mt-0.5 font-medium">
+                    {session?.user?.name || "—"}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-muted-foreground">Email</dt>
+                  <dd className="mt-0.5 font-medium">
+                    {session?.user?.email || "—"}
+                  </dd>
+                </div>
+              </dl>
             </div>
           </div>
         </TabsContent>
       </Tabs>
-    </div>
+    </PageContainer>
   );
 }

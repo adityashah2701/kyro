@@ -1,4 +1,6 @@
 import { PageHeader } from "@/components/layout/page-header";
+import { PageContainer } from "@/components/layout/page-container";
+import { StatCard } from "@/components/ui/stat-card";
 import { db } from "@kyro/database";
 import { project, projectRepository } from "@kyro/database/schema";
 import { eq, and } from "@kyro/database";
@@ -81,7 +83,7 @@ export default async function ProjectDetailsPage(props: {
     : `${projectData.slug}.localhost`;
 
   return (
-    <div className="p-6 sm:p-10 max-w-6xl mx-auto">
+    <PageContainer>
       <div className="mb-6 flex items-center text-sm text-muted-foreground">
         <Link
           href="/projects"
@@ -124,57 +126,38 @@ export default async function ProjectDetailsPage(props: {
         </TabsList>
 
         <TabsContent value="overview">
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <div className="rounded-xl border bg-card text-card-foreground shadow-sm p-6">
-              <div className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <h3 className="tracking-tight text-sm font-medium">
-                  Framework
-                </h3>
-                <TerminalSquare className="h-4 w-4 text-muted-foreground" />
-              </div>
-              <div className="text-2xl font-bold mt-2">
-                {projectData.framework}
-              </div>
-            </div>
-
-            <div className="rounded-xl border bg-card text-card-foreground shadow-sm p-6">
-              <div className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <h3 className="tracking-tight text-sm font-medium">
-                  Deployments
-                </h3>
-                <Rocket className="h-4 w-4 text-muted-foreground" />
-              </div>
-              <div className="text-2xl font-bold mt-2">
-                {deployments.length}
-              </div>
-            </div>
-
-            <div className="rounded-xl border bg-card text-card-foreground shadow-sm p-6">
-              <div className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <h3 className="tracking-tight text-sm font-medium">Domain</h3>
-                <Globe className="h-4 w-4 text-muted-foreground" />
-              </div>
-              <div
-                className="text-lg font-bold mt-2 truncate"
-                title={`${mainHost}:8000`}
-              >
-                {mainHost}
-              </div>
-            </div>
-
-            <div className="rounded-xl border bg-card text-card-foreground shadow-sm p-6">
-              <div className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <h3 className="tracking-tight text-sm font-medium">Status</h3>
-                <Activity className="h-4 w-4 text-muted-foreground" />
-              </div>
-              <div className="text-2xl font-bold mt-2 capitalize">
-                {projectData.status}
-              </div>
-            </div>
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+            <StatCard
+              label="Framework"
+              value={projectData.framework}
+              icon={TerminalSquare}
+              accent
+            />
+            <StatCard
+              label="Deployments"
+              value={deployments.length}
+              icon={Rocket}
+            />
+            <StatCard
+              label="Domain"
+              value={
+                <span className="text-lg" title={`${mainHost}:8000`}>
+                  {mainHost}
+                </span>
+              }
+              icon={Globe}
+            />
+            <StatCard
+              label="Status"
+              value={<span className="capitalize">{projectData.status}</span>}
+              icon={Activity}
+            />
           </div>
 
           <div className="mt-8">
-            <h3 className="text-lg font-medium mb-4">Recent Deployments</h3>
+            <h2 className="mb-4 text-base font-semibold tracking-tight">
+              Recent Deployments
+            </h2>
             <DeploymentHistoryTable
               deployments={deploymentDataList.slice(0, 5)}
               projectId={params.projectId}
@@ -217,7 +200,9 @@ export default async function ProjectDetailsPage(props: {
             )}
 
             <div className="mt-4">
-              <h3 className="text-lg font-medium mb-4">Deployment History</h3>
+              <h2 className="mb-4 text-base font-semibold tracking-tight">
+                Deployment History
+              </h2>
               <DeploymentHistoryTable
                 deployments={deploymentDataList}
                 projectId={params.projectId}
@@ -235,11 +220,40 @@ export default async function ProjectDetailsPage(props: {
         </TabsContent>
 
         <TabsContent value="settings">
-          <div className="text-sm text-muted-foreground p-4 border rounded-md">
-            Settings placeholder
+          <div className="max-w-2xl space-y-4">
+            <div className="rounded-xl bg-card p-6 ring-1 ring-foreground/10">
+              <h2 className="text-base font-semibold tracking-tight">
+                Project Settings
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Manage general settings for this project.
+              </p>
+              <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+                <div>
+                  <dt className="text-xs text-muted-foreground">Name</dt>
+                  <dd className="mt-0.5 font-medium">{projectData.name}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-muted-foreground">Slug</dt>
+                  <dd className="mt-0.5 font-medium">{projectData.slug}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-muted-foreground">Visibility</dt>
+                  <dd className="mt-0.5 font-medium capitalize">
+                    {projectData.visibility}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-muted-foreground">Framework</dt>
+                  <dd className="mt-0.5 font-medium">
+                    {projectData.framework}
+                  </dd>
+                </div>
+              </dl>
+            </div>
           </div>
         </TabsContent>
       </Tabs>
-    </div>
+    </PageContainer>
   );
 }

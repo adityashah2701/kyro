@@ -7,6 +7,10 @@ interface PageHeaderProps extends React.HTMLAttributes<HTMLDivElement> {
   children?: React.ReactNode;
 }
 
+/**
+ * Standard page title block. Defines the top level of the typographic hierarchy
+ * (page title → description) used consistently across every page.
+ */
 export function PageHeader({
   title,
   description,
@@ -15,12 +19,24 @@ export function PageHeader({
   ...props
 }: PageHeaderProps) {
   return (
-    <div className={cn("flex flex-col gap-1 pb-6", className)} {...props}>
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
-        {children && <div className="flex items-center gap-2">{children}</div>}
+    <div
+      className={cn(
+        "flex flex-col gap-3 pb-6 sm:flex-row sm:items-center sm:justify-between",
+        className
+      )}
+      {...props}
+    >
+      <div className="space-y-1.5">
+        <h1 className="text-2xl font-semibold tracking-tight sm:text-[1.7rem]">
+          {title}
+        </h1>
+        {description && (
+          <p className="text-sm text-muted-foreground">{description}</p>
+        )}
       </div>
-      {description && <p className="text-muted-foreground">{description}</p>}
+      {children && (
+        <div className="flex shrink-0 items-center gap-2">{children}</div>
+      )}
     </div>
   );
 }

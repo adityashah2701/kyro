@@ -19,59 +19,61 @@ export type DeploymentStatus =
   | "failed"
   | "cancelled";
 
+const spinner = <Loader2 className="mr-1 size-3 animate-spin" />;
+
 const statusConfig: Record<
   DeploymentStatus,
   { label: string; color: string; icon: React.ReactNode }
 > = {
   queued: {
     label: "Queued",
-    color: "bg-muted text-muted-foreground hover:bg-muted",
-    icon: <Clock className="w-3 h-3 mr-1" />,
+    color: "bg-muted text-muted-foreground",
+    icon: <Clock className="mr-1 size-3" />,
   },
   initializing: {
     label: "Initializing",
-    color: "bg-blue-500/10 text-blue-500 hover:bg-blue-500/20",
-    icon: <Loader2 className="w-3 h-3 mr-1 animate-spin" />,
+    color: "bg-info/10 text-info",
+    icon: spinner,
   },
   cloning: {
     label: "Cloning",
-    color: "bg-blue-500/10 text-blue-500 hover:bg-blue-500/20",
-    icon: <Loader2 className="w-3 h-3 mr-1 animate-spin" />,
+    color: "bg-info/10 text-info",
+    icon: spinner,
   },
   installing: {
     label: "Installing",
-    color: "bg-indigo-500/10 text-indigo-500 hover:bg-indigo-500/20",
-    icon: <Loader2 className="w-3 h-3 mr-1 animate-spin" />,
+    color: "bg-info/10 text-info",
+    icon: spinner,
   },
   building: {
     label: "Building",
-    color: "bg-orange-500/10 text-orange-500 hover:bg-orange-500/20",
-    icon: <Loader2 className="w-3 h-3 mr-1 animate-spin" />,
+    color: "bg-warning/10 text-warning",
+    icon: spinner,
   },
   uploading: {
     label: "Uploading",
-    color: "bg-purple-500/10 text-purple-500 hover:bg-purple-500/20",
-    icon: <Loader2 className="w-3 h-3 mr-1 animate-spin" />,
+    color: "bg-brand/10 text-brand",
+    icon: spinner,
   },
   deploying: {
     label: "Deploying",
-    color: "bg-blue-500/10 text-blue-500 hover:bg-blue-500/20",
-    icon: <Loader2 className="w-3 h-3 mr-1 animate-spin" />,
+    color: "bg-brand/10 text-brand",
+    icon: spinner,
   },
   success: {
     label: "Success",
-    color: "bg-green-500/10 text-green-500 hover:bg-green-500/20",
-    icon: <CheckCircle2 className="w-3 h-3 mr-1" />,
+    color: "bg-success/10 text-success",
+    icon: <CheckCircle2 className="mr-1 size-3" />,
   },
   failed: {
     label: "Failed",
-    color: "bg-destructive/10 text-destructive hover:bg-destructive/20",
-    icon: <XCircle className="w-3 h-3 mr-1" />,
+    color: "bg-destructive/10 text-destructive",
+    icon: <XCircle className="mr-1 size-3" />,
   },
   cancelled: {
     label: "Cancelled",
-    color: "bg-muted text-muted-foreground hover:bg-muted",
-    icon: <AlertCircle className="w-3 h-3 mr-1" />,
+    color: "bg-muted text-muted-foreground",
+    icon: <AlertCircle className="mr-1 size-3" />,
   },
 };
 
