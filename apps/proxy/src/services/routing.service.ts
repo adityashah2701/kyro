@@ -4,6 +4,7 @@ export interface ResolvedRoute {
   deploymentId: string;
   projectId: string;
   artifactLocation: string;
+  startCommand: string | null;
 }
 
 export class RoutingService {
@@ -37,10 +38,14 @@ export class RoutingService {
       });
 
       if (activeDeployment && activeDeployment.artifactLocation) {
+        const proj = await db.query.project.findFirst({
+          where: eq(schema.project.id, customDomainMatch.projectId),
+        });
         return {
           deploymentId: activeDeployment.id,
           projectId: customDomainMatch.projectId,
           artifactLocation: activeDeployment.artifactLocation,
+          startCommand: proj?.startCommand || null,
         };
       }
     }
@@ -63,10 +68,14 @@ export class RoutingService {
     });
 
     if (previewMatch && previewMatch.artifactLocation) {
+      const proj = await db.query.project.findFirst({
+        where: eq(schema.project.id, previewMatch.projectId),
+      });
       return {
         deploymentId: previewMatch.id,
         projectId: previewMatch.projectId,
         artifactLocation: previewMatch.artifactLocation,
+        startCommand: proj?.startCommand || null,
       };
     }
 
@@ -91,6 +100,7 @@ export class RoutingService {
           deploymentId: activeDeployment.id,
           projectId: projectMatch.id,
           artifactLocation: activeDeployment.artifactLocation,
+          startCommand: projectMatch.startCommand || null,
         };
       }
     }

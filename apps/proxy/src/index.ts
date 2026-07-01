@@ -1,7 +1,9 @@
 import express from "express";
 import { RoutingService } from "./services/routing.service";
+import { RunnerService } from "./services/runner.service";
 import { MinioStorageProvider } from "@kyro/storage";
 import path from "path";
+import httpProxy from "http-proxy";
 
 const app = express();
 const PORT = process.env.PROXY_PORT || 8000;
@@ -18,7 +20,22 @@ const storage = new MinioStorageProvider(
   process.env.MINIO_BUCKET || "kyro-deployments",
 );
 
-app.use(async (req, res) => {
+const proxyServer = httpProxy.createProxyServer({});
+
+// Handle proxy errors gracefully
+proxyServer.on("error", (err, req, res) => {
+  console.error("[HTTP Proxy Error]:", err);
+  if (res && typeof (res as any).status === "function") {
+    (res as express.Response)
+      .status(502)
+      .send("Bad Gateway: Backend server error");
+  } else if (res && typeof (res as any).writeHead === "function") {
+    (res as any).writeHead(502);
+    (res as any).end("Bad Gateway: Backend server error");
+  }
+});
+
+app.use(async (req, res, next) => {
   const host = req.headers.host;
   if (!host) {
     return res.status(400).send("Bad Request: Missing Host header");
@@ -29,6 +46,28 @@ app.use(async (req, res) => {
 
     if (!route) {
       return res.status(404).send("Deployment not found or inactive.");
+    }
+
+    // Dynamic Backend Routing (Serverless-style)
+    if (route.startCommand) {
+      try {
+        const port = await RunnerService.getInstance(
+          route.deploymentId,
+          route.artifactLocation,
+          route.startCommand,
+        );
+
+        // Proxy the request to the dynamically spun-up local Node server
+        return proxyServer.web(req, res, {
+          target: `http://127.0.0.1:${port}`,
+        });
+      } catch (error) {
+        console.error(
+          `[Runner Error] Failed to start backend for ${host}:`,
+          error,
+        );
+        return res.status(500).send("Failed to start backend service.");
+      }
     }
 
     // Determine the requested file path

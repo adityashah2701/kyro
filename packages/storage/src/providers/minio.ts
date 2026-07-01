@@ -13,6 +13,13 @@ export interface StorageProvider {
   uploadDirectory(localDir: string, prefix: string): Promise<void>;
 
   /**
+   * Downloads an entire directory recursively from the storage provider.
+   * @param prefix The prefix (folder) in the storage bucket
+   * @param localDir The local directory path
+   */
+  downloadDirectory(prefix: string, localDir: string): Promise<void>;
+
+  /**
    * Downloads a specific file as a readable stream.
    * @param filePath The file path in the storage bucket
    */
@@ -76,6 +83,48 @@ export class MinioStorageProvider implements StorageProvider {
         "Content-Type": contentType,
       });
     }
+  }
+
+  public async downloadDirectory(
+    prefix: string,
+    localDir: string,
+  ): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const objectsStream = this.client.listObjectsV2(
+        this.bucketName,
+        prefix,
+        true,
+      );
+      const objects: string[] = [];
+
+      objectsStream.on("data", (obj) => {
+        if (obj.name) objects.push(obj.name);
+      });
+
+      objectsStream.on("error", (err) => reject(err));
+
+      objectsStream.on("end", async () => {
+        try {
+          for (const objectName of objects) {
+            // Remove the prefix from the objectName to get relative path
+            const relativePath = objectName
+              .substring(prefix.length)
+              .replace(/^[/\\\\]/, "");
+            const localPath = path.join(localDir, relativePath);
+
+            await fs.mkdir(path.dirname(localPath), { recursive: true });
+            await this.client.fGetObject(
+              this.bucketName,
+              objectName,
+              localPath,
+            );
+          }
+          resolve();
+        } catch (err) {
+          reject(err);
+        }
+      });
+    });
   }
 
   public async downloadStream(
