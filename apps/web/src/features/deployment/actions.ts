@@ -22,6 +22,7 @@ export async function triggerDeploymentAction(projectId: string) {
   await deploymentService.queueDeployment(newDeployment.id);
 
   revalidatePath(`/projects/${projectId}`);
+  revalidatePath(`/deployments`);
 
   return { success: true, deployment: newDeployment };
 }
@@ -44,6 +45,7 @@ export async function cancelDeploymentAction(
   );
 
   revalidatePath(`/projects/${projectId}`);
+  revalidatePath(`/deployments`);
   return { success: true, deployment: updated };
 }
 
@@ -65,5 +67,6 @@ export async function retryDeploymentAction(
   );
 
   revalidatePath(`/projects/${projectId}`);
+  revalidatePath(`/deployments`);
   return { success: true, deployment: updated };
 }

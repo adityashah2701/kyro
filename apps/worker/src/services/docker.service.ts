@@ -3,6 +3,7 @@ import { logger } from "../logger";
 import { DetectionResult } from "./detector.service";
 import fs from "fs/promises";
 import path from "path";
+import { redisClient } from "../redis";
 
 export class DockerService {
   /**
@@ -12,6 +13,7 @@ export class DockerService {
     deploymentId: string,
     workspacePath: string,
     detection: DetectionResult,
+    logFilePath: string,
   ): Promise<void> {
     const maxMemory = process.env.MAX_MEMORY || "1g";
     const maxCpu = process.env.MAX_CPU || "1.0";
@@ -32,7 +34,11 @@ export class DockerService {
     const scriptContent = `#!/bin/sh
 set -e
 
-echo "=== Setup Environment ==="
+timestamp() {
+  date +"%H:%M:%S"
+}
+
+echo "\\n[$(timestamp)] 🚀 Setup Environment..."
 # Copy files to an internal directory to avoid Docker Desktop macOS volume mount issues during npm install
 mkdir -p /app
 cp -a /workspace/. /app/
@@ -44,13 +50,13 @@ if [ "${detection.packageManager}" = "bun" ]; then
   npm install -g bun
 fi
 
-echo "=== Installing Dependencies ==="
+echo "\\n[$(timestamp)] 📦 Installing Dependencies..."
 ${detection.installCommand}
 
-echo "=== Building Application ==="
+echo "\\n[$(timestamp)] 🔨 Building Application..."
 ${detection.buildCommand}
 
-echo "=== Extracting Output ==="
+echo "\\n[$(timestamp)] 📂 Extracting Output..."
 # Copy the built output back to the mounted workspace
 if [ "${detection.outputDirectory}" = "." ] || [ "${detection.outputDirectory}" = "" ]; then
   cp -a /app/. /workspace/
@@ -58,14 +64,14 @@ else
   if [ -e "/app/${detection.outputDirectory}" ]; then
     cp -a /app/${detection.outputDirectory} /workspace/
   else
-    echo "Warning: Output directory '${detection.outputDirectory}' not found. Proceeding with existing files."
+    echo "⚠️  Warning: Output directory '${detection.outputDirectory}' not found. Proceeding with existing files."
   fi
   # Always copy node_modules back so the runtime has the installed dependencies
   if [ -d "/app/node_modules" ]; then
     cp -a /app/node_modules /workspace/
   fi
 fi
-echo "=== Build Finished successfully ==="
+echo "\\n[$(timestamp)] ✨ Build Finished successfully!\\n"
 `;
 
     await fs.writeFile(buildScriptPath, scriptContent, { mode: 0o755 });
@@ -92,17 +98,19 @@ echo "=== Build Finished successfully ==="
         const str = data.toString();
         buildOutput += str;
         logger.info({ deploymentId }, `[BUILD] ${str.trim()}`);
+        redisClient.publish(`deployments:${deploymentId}:logs`, str);
       });
 
       dockerProcess.stderr.on("data", (data) => {
         const str = data.toString();
         buildOutput += str;
         logger.info({ deploymentId }, `[BUILD] ${str.trim()}`);
+        redisClient.publish(`deployments:${deploymentId}:logs`, str);
       });
 
       dockerProcess.on("close", async (code) => {
         // Save logs to a file in the workspace
-        await fs.writeFile(path.join(workspacePath, "build.log"), buildOutput);
+        await fs.appendFile(logFilePath, buildOutput);
 
         if (code === 0) {
           logger.info({ deploymentId }, "Docker container exited successfully");

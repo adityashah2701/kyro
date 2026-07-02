@@ -4,11 +4,7 @@ import { logger } from "./logger";
 import { processDeploymentJob } from "./processor";
 import type { QueueJobData } from "@kyro/shared";
 
-const redisConfig = {
-  host: process.env.REDIS_HOST || "localhost",
-  port: parseInt(process.env.REDIS_PORT || "6379", 10),
-  maxRetriesPerRequest: null,
-};
+import { redisConfig } from "./redis";
 
 logger.info("Starting Docker Build Worker...");
 

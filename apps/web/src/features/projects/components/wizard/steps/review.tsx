@@ -7,6 +7,7 @@ import { ArrowLeft, Rocket, Loader2, CheckCircle2 } from "lucide-react";
 import { createProject } from "../../../actions";
 import { linkRepositoryToProject } from "@/features/github/actions";
 import { addVariableAction } from "@/features/environment/actions";
+import { triggerDeploymentAction } from "@/features/deployment/actions";
 import { toast } from "sonner";
 import { frameworkRegistry } from "../../../frameworks/registry";
 import type { FrameworkDefinition } from "../../../frameworks/types";
@@ -52,10 +53,13 @@ export function ReviewStep({
 
       const projectId = projectRes.project.id;
 
-      // 2. Link Repository
+      // 2. Link Repository and Auto-Deploy
       if (state.repository) {
         setProgress("Linking repository...");
         await linkRepositoryToProject(projectId, state.repository);
+
+        setProgress("Queuing deployment...");
+        await triggerDeploymentAction(projectId);
       }
 
       // 3. Add Environment Variables

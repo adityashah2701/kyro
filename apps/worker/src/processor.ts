@@ -5,12 +5,29 @@ import type { QueueJobData, DeploymentStatus } from "@kyro/shared";
 import fs from "fs/promises";
 import path from "path";
 
-// Services
 import { GitService } from "./services/git.service";
 import { DetectorService } from "./services/detector.service";
 import { DockerService } from "./services/docker.service";
 import { ArtifactService } from "./services/artifact.service";
 import { decrypt } from "./crypto/encryption";
+import { redisClient } from "./redis";
+
+const getLogFilePath = (deploymentId: string) =>
+  path.join(
+    process.env.TEMP_DIRECTORY || "/tmp/deployments",
+    `${deploymentId}.log`,
+  );
+
+const streamLog = async (deploymentId: string, message: string) => {
+  const timestamp = new Date().toISOString().substring(11, 19);
+  const formatted = `[${timestamp}] ${message}\n`;
+  try {
+    const logPath = getLogFilePath(deploymentId);
+    await fs.mkdir(path.dirname(logPath), { recursive: true });
+    await fs.appendFile(logPath, formatted);
+    redisClient.publish(`deployments:${deploymentId}:logs`, formatted);
+  } catch (e) {}
+};
 
 const updateStatus = async (
   deploymentId: string,
@@ -73,15 +90,21 @@ export const processDeploymentJob = async (job: Job<QueueJobData>) => {
       { deploymentId, workspacePath },
       "Created deployment workspace",
     );
+    await streamLog(deploymentId, "🚀 Initializing deployment workspace...");
 
     // 2. Cloning
     await updateStatus(deploymentId, "cloning");
+    await streamLog(deploymentId, "📥 Cloning repository...");
     const { commitSha, commitMessage } = await GitService.cloneRepository(
       repoRecord.cloneUrl,
       deploymentRecord.branch,
       workspacePath,
       repoRecord.isPrivate,
       githubAcc?.installationId,
+    );
+    await streamLog(
+      deploymentId,
+      `✅ Cloned commit: ${commitSha.substring(0, 7)} - ${commitMessage}`,
     );
 
     // Save commit info
@@ -91,6 +114,7 @@ export const processDeploymentJob = async (job: Job<QueueJobData>) => {
       .where(eq(schema.deployment.id, deploymentId));
 
     // 3. Detecting Framework
+    await streamLog(deploymentId, "🔍 Detecting project framework...");
     const detection = await DetectorService.detect(workspacePath);
 
     // Override detected values with project explicit configurations if they exist
@@ -104,6 +128,10 @@ export const processDeploymentJob = async (job: Job<QueueJobData>) => {
       detection.outputDirectory = projectRecord.outputDirectory;
     }
 
+    await streamLog(
+      deploymentId,
+      `⚙️  Framework: ${detection.framework} | Package Manager: ${detection.packageManager}`,
+    );
     logger.info({ deploymentId, detection }, "Final project configuration");
 
     // Update the project framework in the database if it changed
@@ -150,13 +178,24 @@ export const processDeploymentJob = async (job: Job<QueueJobData>) => {
       { deploymentId, varCount: envVarRows.length },
       "Wrote .env file",
     );
+    await streamLog(
+      deploymentId,
+      `🔐 Injected ${envVarRows.length} environment variables`,
+    );
 
     // 6. Building (Docker Execution handles both install and build)
     await updateStatus(deploymentId, "building");
-    await DockerService.executeBuild(deploymentId, workspacePath, detection);
+    await streamLog(deploymentId, "🐳 Starting Docker build container...");
+    await DockerService.executeBuild(
+      deploymentId,
+      workspacePath,
+      detection,
+      getLogFilePath(deploymentId),
+    );
 
     // 6. Collecting Artifacts
     await updateStatus(deploymentId, "uploading");
+    await streamLog(deploymentId, "☁️  Collecting and uploading artifacts...");
     const {
       buildSize,
       hash,
@@ -165,6 +204,10 @@ export const processDeploymentJob = async (job: Job<QueueJobData>) => {
       storageProvider,
       metadata,
     } = await ArtifactService.collect(workspacePath, detection);
+    await streamLog(
+      deploymentId,
+      `✅ Uploaded ${(buildSize / 1024 / 1024).toFixed(2)} MB of artifacts`,
+    );
 
     // 7. Success
     const buildDuration = Date.now() - startTime;
@@ -179,10 +222,21 @@ export const processDeploymentJob = async (job: Job<QueueJobData>) => {
         .where(eq(schema.deployment.projectId, deploymentRecord.projectId));
     }
 
+    // Try to read build logs
+    let buildLogs = "";
+    try {
+      buildLogs = await fs.readFile(getLogFilePath(deploymentId), "utf-8");
+    } catch {
+      // Ignore if log file doesn't exist
+    }
+
     await updateStatus(deploymentId, "success", {
       completedAt: new Date(),
       buildDuration,
-      metadata,
+      metadata: {
+        ...metadata,
+        buildLogs,
+      },
       artifactLocation,
       artifactSize: buildSize,
       storageProvider,
@@ -191,6 +245,10 @@ export const processDeploymentJob = async (job: Job<QueueJobData>) => {
       active: isActive,
       activatedAt: isActive ? new Date() : null,
     });
+    await streamLog(
+      deploymentId,
+      `🎉 Deployment finished successfully! Preview: http://${previewUrl}:8000`,
+    );
 
     logger.info(
       { deploymentId, buildDuration, buildSize },
@@ -198,12 +256,38 @@ export const processDeploymentJob = async (job: Job<QueueJobData>) => {
     );
   } catch (error: any) {
     logger.error({ deploymentId, err: error }, "Deployment failed");
-    await updateStatus(deploymentId, "failed", { completedAt: new Date() });
+
+    // Try to read build logs on failure too
+    let buildLogs = "";
+    try {
+      buildLogs = await fs.readFile(getLogFilePath(deploymentId), "utf-8");
+    } catch {
+      // Ignore
+    }
+
+    // Attempt to merge existing metadata with buildLogs
+    let finalMetadata = { buildLogs };
+    try {
+      const existing = await db.query.deployment.findFirst({
+        where: eq(schema.deployment.id, deploymentId),
+      });
+      if (existing?.metadata) {
+        finalMetadata = { ...(existing.metadata as any), buildLogs };
+      }
+    } catch {
+      // Ignore
+    }
+
+    await updateStatus(deploymentId, "failed", {
+      completedAt: new Date(),
+      metadata: finalMetadata,
+    });
     throw error;
   } finally {
     // 8. Cleanup
     try {
       await fs.rm(workspacePath, { recursive: true, force: true });
+      await fs.rm(getLogFilePath(deploymentId), { force: true });
       logger.info(
         { deploymentId, workspacePath },
         "Cleaned up deployment workspace",

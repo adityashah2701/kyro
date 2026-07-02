@@ -1,5 +1,5 @@
 import { db } from "@kyro/database";
-import { deployment, projectRepository } from "@kyro/database/schema";
+import { deployment, projectRepository, project } from "@kyro/database/schema";
 import { eq, desc, and } from "@kyro/database";
 import { deploymentQueue } from "../queue/client";
 
@@ -129,4 +129,25 @@ export async function getDeploymentDetails(
     where: and(eq(deployment.id, deploymentId), eq(deployment.userId, userId)),
   });
   return existing;
+}
+
+export async function getUserDeployments(userId: string) {
+  const deployments = await db
+    .select({
+      deployment,
+      project: {
+        name: project.name,
+        slug: project.slug,
+      },
+    })
+    .from(deployment)
+    .leftJoin(project, eq(deployment.projectId, project.id))
+    .where(eq(deployment.userId, userId))
+    .orderBy(desc(deployment.createdAt));
+
+  // Flatten the result to match the expected format
+  return deployments.map((row) => ({
+    ...row.deployment,
+    project: row.project,
+  }));
 }

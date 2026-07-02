@@ -17,9 +17,23 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { cancelDeploymentAction, retryDeploymentAction } from "../actions";
 import { toast } from "sonner";
 import { useState, useEffect } from "react";
-import { Loader2, ExternalLink, GitBranch, Rocket } from "lucide-react";
+import {
+  Loader2,
+  ExternalLink,
+  GitBranch,
+  Rocket,
+  Terminal,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
-
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { LogViewer } from "./log-viewer";
 type DeploymentData = {
   id: string;
   deploymentNumber: number;
@@ -30,6 +44,9 @@ type DeploymentData = {
   buildDuration: number | null;
   previewUrl: string | null;
   active: boolean | null;
+  metadata?: Record<string, unknown>;
+  project?: { name: string; slug: string } | null;
+  projectId?: string;
 };
 
 export function DeploymentHistoryTable({
@@ -74,10 +91,10 @@ export function DeploymentHistoryTable({
     );
   }
 
-  const handleCancel = async (deploymentId: string) => {
+  const handleCancel = async (deploymentId: string, itemProjectId: string) => {
     try {
       setProcessingId(deploymentId);
-      await cancelDeploymentAction(deploymentId, projectId);
+      await cancelDeploymentAction(deploymentId, itemProjectId || projectId);
       toast.success("Deployment cancelled.");
     } catch (e) {
       toast.error("Failed to cancel deployment.");
@@ -87,10 +104,10 @@ export function DeploymentHistoryTable({
     }
   };
 
-  const handleRetry = async (deploymentId: string) => {
+  const handleRetry = async (deploymentId: string, itemProjectId: string) => {
     try {
       setProcessingId(deploymentId);
-      await retryDeploymentAction(deploymentId, projectId);
+      await retryDeploymentAction(deploymentId, itemProjectId || projectId);
       toast.success("Deployment queued for retry!");
     } catch (e) {
       toast.error("Failed to retry deployment.");
@@ -123,6 +140,9 @@ export function DeploymentHistoryTable({
         <TableHeader>
           <TableRow>
             <TableHead>Deployment</TableHead>
+            {deployments.some((d) => d.project) && (
+              <TableHead>Project</TableHead>
+            )}
             <TableHead>Branch</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Duration</TableHead>
@@ -150,6 +170,11 @@ export function DeploymentHistoryTable({
                 <TableCell className="font-semibold">
                   #{d.deploymentNumber}
                 </TableCell>
+                {d.project && (
+                  <TableCell>
+                    <div className="font-medium">{d.project.name}</div>
+                  </TableCell>
+                )}
                 <TableCell>
                   <div className="flex items-center gap-1.5 text-muted-foreground">
                     <GitBranch className="h-3.5 w-3.5" />
@@ -212,12 +237,31 @@ export function DeploymentHistoryTable({
                       <Loader2 className="w-4 h-4 animate-spin" />
                     </Button>
                   ) : (
-                    <>
+                    <div className="flex items-center justify-end gap-2">
+                      <Dialog>
+                        <DialogTrigger
+                          render={
+                            <Button variant="ghost" size="sm" title="View Logs">
+                              <Terminal className="h-4 w-4" />
+                            </Button>
+                          }
+                        />
+                        <DialogContent className="max-w-3xl h-[80vh] flex flex-col">
+                          <DialogHeader>
+                            <DialogTitle>
+                              Build Logs for #{d.deploymentNumber}
+                            </DialogTitle>
+                          </DialogHeader>
+                          <LogViewer deploymentId={d.id} />
+                        </DialogContent>
+                      </Dialog>
                       {canCancel && (
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleCancel(d.id)}
+                          onClick={() =>
+                            handleCancel(d.id, d.projectId || projectId)
+                          }
                         >
                           Cancel
                         </Button>
@@ -226,7 +270,9 @@ export function DeploymentHistoryTable({
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleRetry(d.id)}
+                          onClick={() =>
+                            handleRetry(d.id, d.projectId || projectId)
+                          }
                         >
                           Retry
                         </Button>
@@ -245,7 +291,7 @@ export function DeploymentHistoryTable({
                           Active
                         </Badge>
                       )}
-                    </>
+                    </div>
                   )}
                 </TableCell>
               </TableRow>

@@ -60,17 +60,17 @@ export function DeploymentTimeline({
           <div key={stage} className="flex items-start gap-4">
             <div className="flex flex-col items-center">
               {isCompleted ? (
-                <CheckCircle2 className="w-5 h-5 text-green-500" />
+                <CheckCircle2 className="size-5 text-success" />
               ) : isCurrent ? (
-                <Loader2 className="w-5 h-5 text-blue-500 animate-spin" />
+                <Loader2 className="size-5 animate-spin text-info" />
               ) : isFailurePoint ? (
-                <XCircle className="w-5 h-5 text-destructive" />
+                <XCircle className="size-5 text-destructive" />
               ) : (
-                <CircleDashed className="w-5 h-5 text-muted-foreground/50" />
+                <CircleDashed className="size-5 text-muted-foreground/50" />
               )}
               {index !== STAGES.length - 1 && (
                 <div
-                  className={`w-px h-6 mt-2 ${isCompleted ? "bg-green-500" : "bg-border"}`}
+                  className={`mt-2 h-6 w-px ${isCompleted ? "bg-success" : "bg-border"}`}
                 />
               )}
             </div>

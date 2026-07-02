@@ -169,7 +169,7 @@ export class DetectorService {
     }
     switch (packageManager) {
       case "npm":
-        return "npm install";
+        return "npm install --no-fund --no-audit --loglevel=error";
       case "yarn":
         return "yarn install";
       case "pnpm":
