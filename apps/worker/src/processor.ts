@@ -211,7 +211,8 @@ export const processDeploymentJob = async (job: Job<QueueJobData>) => {
 
     // 7. Success
     const buildDuration = Date.now() - startTime;
-    const previewUrl = `${deploymentRecord.projectId}-${hash}.localhost`;
+    const baseDomain = process.env.BASE_DOMAIN || "localhost";
+    const previewUrl = `${deploymentRecord.projectId}-${hash}.${baseDomain}`;
     const isActive = deploymentRecord.branch === repoRecord.defaultBranch;
 
     // If making active, deactivate others

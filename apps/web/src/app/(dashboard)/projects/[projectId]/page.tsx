@@ -79,9 +79,10 @@ export default async function ProjectDetailsPage(props: {
     (d) => d.isPrimary && d.verificationStatus === "verified"
   );
 
+  const baseDomain = process.env.BASE_DOMAIN || "localhost";
   const mainHost = verifiedPrimaryDomain
     ? verifiedPrimaryDomain.hostname
-    : `${projectData.slug}.localhost`;
+    : `${projectData.slug}.${baseDomain}`;
 
   return (
     <PageContainer>
