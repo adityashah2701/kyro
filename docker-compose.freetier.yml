@@ -1,23 +1,37 @@
-# Free-Tier overlay for docker-compose.yml — caps the memory of the infra
-# containers and tunes them for a ~1 GB host, WITHOUT changing the base file
-# (so production keeps using the untuned, roomier defaults).
+# Free-Tier production overlay — stacked on top of docker-compose.yml.
+#
+# Target host: AWS t2.micro / t3.micro — 1 vCPU, 1 GB RAM, ~20 GB EBS.
 #
 # Usage:
 #   docker compose -f docker-compose.yml -f docker-compose.freetier.yml up -d
 #
-# Notes:
-#  - Ports are re-bound to 127.0.0.1 so infra is never exposed to the internet.
-#  - mem_limit is a hard ceiling; the tuning flags keep each service's baseline
-#    footprint small so all three fit alongside the Node processes + dockerd.
-#  - restart: unless-stopped ensures all three services come back automatically
-#    after an instance reboot (Free Tier instances reboot during maintenance).
+# WHY ports are safe here (no duplication):
+#   docker-compose.yml defines NO ports at all, so Docker Compose has nothing
+#   to merge/append. This overlay is the sole owner of every port binding.
+#   The result is exactly one published port per service in the merged config.
+#   (Previously the base file defined ports AND this overlay redefined them,
+#   causing Docker Compose to append both sets → duplicate published ports →
+#   "bind: address already in use" on container start.)
+#
+# Security:
+#   All ports are bound to 127.0.0.1 — accessible only from the host itself.
+#   The reverse proxy (Caddy / nginx) and PM2 processes talk to services via
+#   localhost. Nothing is reachable from the public internet on these ports.
+#
+# Restart policy:
+#   restart: unless-stopped ensures containers come back automatically after
+#   an instance reboot (Free Tier instances reboot during maintenance windows).
+
 services:
   postgres:
     restart: unless-stopped
+    # Bind to loopback only — not exposed to the public internet.
     ports:
       - "127.0.0.1:5432:5432"
     mem_limit: 256m
     # Shrink Postgres' memory appetite for a tiny box.
+    # Replaces the default postgres entrypoint args — safe because the base
+    # docker-compose.yml specifies no `command` for postgres.
     command:
       - "postgres"
       - "-c"
@@ -33,23 +47,26 @@ services:
 
   redis:
     restart: unless-stopped
+    # Bind to loopback only.
     ports:
       - "127.0.0.1:6379:6379"
     mem_limit: 96m
-    # Cap Redis and evict least-recently-used keys under pressure.
-    #
     # WHY allkeys-lru (not noeviction):
-    #   `noeviction` causes Redis to *error* on new writes when the memory
-    #   ceiling is hit — BullMQ would fail to enqueue jobs. `allkeys-lru`
+    #   noeviction causes Redis to *error* on new writes when the memory
+    #   ceiling is hit — BullMQ would fail to enqueue jobs. allkeys-lru
     #   instead evicts the coldest keys, keeping the service alive. BullMQ
     #   job data is small (~1–2 KB each) so 64 MB holds thousands of jobs
     #   before any eviction occurs; in practice eviction never happens.
     #
     # WHY no persistence (--save "" --appendonly no):
-    #   Job queue state lives in Redis but is reconstructed from Postgres on
-    #   worker restart (BullMQ re-scans active/waiting jobs). Disabling AOF
-    #   and RDB removes the fsync overhead and avoids filling the small EBS
-    #   volume with write-ahead logs.
+    #   Job queue state is reconstructed from Postgres on worker restart.
+    #   Disabling AOF and RDB removes fsync overhead and avoids filling the
+    #   small EBS volume with write-ahead logs.
+    #
+    # NOTE: this command REPLACES (not appends to) the base image's default
+    # entrypoint args because docker-compose.yml sets no `command` for redis.
+    # Docker Compose merges `command` as a whole value, not element-by-element,
+    # so the override is safe.
     command:
       - "redis-server"
       - "--maxmemory"
@@ -63,7 +80,8 @@ services:
 
   minio:
     restart: unless-stopped
+    # Bind BOTH ports to loopback only.
     ports:
-      - "127.0.0.1:9000:9000"
-      - "127.0.0.1:9001:9001"
+      - "127.0.0.1:9000:9000"    # S3 API
+      - "127.0.0.1:9001:9001"    # Web console
     mem_limit: 256m

@@ -1,4 +1,23 @@
-version: '3.8'
+# Base service definitions — image, environment, and volumes only.
+#
+# This file intentionally defines NO ports, NO restart policies, and NO
+# memory limits. Those are all environment-specific and are owned entirely
+# by the overlay that is stacked on top of this file.
+#
+# WHY ports are not here:
+#   Docker Compose MERGES lists — it does not replace them. If ports are
+#   defined in the base file AND in an overlay, the merged result contains
+#   BOTH sets of bindings, causing "address already in use" errors because
+#   two port-proxy rules claim the same published port. By owning ports
+#   exclusively in each overlay, there is nothing to merge and the bug is
+#   structurally impossible.
+#
+# Usage:
+#   Local dev:  docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+#   Free Tier:  docker compose -f docker-compose.yml -f docker-compose.freetier.yml up -d
+#
+# See docker-compose.dev.yml and docker-compose.freetier.yml for the
+# environment-specific port bindings, memory limits, and restart policies.
 
 services:
   postgres:
@@ -7,15 +26,11 @@ services:
       POSTGRES_USER: kyro
       POSTGRES_PASSWORD: kyro_password
       POSTGRES_DB: kyro
-    ports:
-      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
   redis:
     image: redis:7-alpine
-    ports:
-      - "6379:6379"
     volumes:
       - redis_data:/data
 
@@ -24,9 +39,6 @@ services:
     environment:
       MINIO_ROOT_USER: kyro_admin
       MINIO_ROOT_PASSWORD: kyro_password
-    ports:
-      - "9000:9000"
-      - "9001:9001"
     command: server /data --console-address ":9001"
     volumes:
       - minio_data:/data

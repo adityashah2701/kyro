@@ -1,6 +1,6 @@
 procs:
   docker:
-    shell: docker compose up
+    shell: docker compose -f docker-compose.yml -f docker-compose.dev.yml up
   web:
     shell: npm run dev -w @kyro/web
   worker:

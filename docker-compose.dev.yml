@@ -1,0 +1,28 @@
+# Local development overlay — stacked on top of docker-compose.yml.
+#
+# Binds all ports to 0.0.0.0 (all interfaces) so services are reachable
+# directly from your Mac/Linux host, browser, database GUIs, etc.
+# No memory limits and no restart policy — fine for a dev machine.
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+#
+# Or set this pair as the default by adding to .env:
+#   COMPOSE_FILE=docker-compose.yml:docker-compose.dev.yml
+#
+# mprocs (the default `npm run dev` runner) uses this file automatically —
+# see mprocs.yaml.
+
+services:
+  postgres:
+    ports:
+      - "5432:5432"
+
+  redis:
+    ports:
+      - "6379:6379"
+
+  minio:
+    ports:
+      - "9000:9000"    # S3 API
+      - "9001:9001"    # Web console
