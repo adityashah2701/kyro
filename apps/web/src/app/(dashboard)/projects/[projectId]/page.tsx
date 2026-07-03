@@ -68,7 +68,7 @@ export default async function ProjectDetailsPage(props: {
     buildDuration: d.buildDuration,
     previewUrl: d.previewUrl,
     active: d.active,
-    metadata: d.metadata,
+    metadata: d.metadata as Record<string, unknown> | undefined,
   }));
 
   const projectDomains = await DomainService.getProjectDomains(
