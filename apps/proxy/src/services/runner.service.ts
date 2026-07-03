@@ -12,6 +12,18 @@ const SERVER_BUNDLE_NAME = "__server_bundle.tgz";
 // not guaranteed to be mountable, so we keep runner workdirs under /tmp.
 const RUNNER_ROOT = "/tmp/kyro-runners";
 
+// Free-Tier guardrails. A running SSR container holds ~80-150 MB; on a 1 GB box
+// we must both cap each container's RAM and bound how many stay warm, evicting
+// the least-recently-used and reaping idle ones so they don't accumulate.
+const RUNNER_MEMORY = process.env.RUNNER_MEMORY; // e.g. "384m" (unset = no cap)
+const RUNNER_MEMORY_SWAP = process.env.RUNNER_MEMORY_SWAP; // e.g. "1g"
+const MAX_INSTANCES = parseInt(process.env.RUNNER_MAX_INSTANCES || "3", 10);
+const IDLE_TIMEOUT_MS = parseInt(
+  process.env.RUNNER_IDLE_TIMEOUT_MS || String(15 * 60 * 1000),
+  10,
+);
+const REAP_INTERVAL_MS = 60 * 1000;
+
 interface RunningInstance {
   port: number;
   process: ChildProcess;
@@ -22,6 +34,7 @@ interface RunningInstance {
 export class RunnerService {
   private static instances = new Map<string, RunningInstance>();
   private static nextPort = 10000;
+  private static reaperStarted = false;
 
   private static storage = new MinioStorageProvider(
     {
@@ -47,6 +60,56 @@ export class RunnerService {
           : reject(new Error(`${cmd} exited with ${code}: ${stderr.trim()}`)),
       );
     });
+  }
+
+  /** Stops a running instance: kill container, drop from map, clean workdir. */
+  private static async stopInstance(deploymentId: string): Promise<void> {
+    const inst = this.instances.get(deploymentId);
+    if (!inst) return;
+    this.instances.delete(deploymentId);
+    console.log(`[Runner] Stopping deployment ${deploymentId}...`);
+    await this.exec("docker", ["rm", "-f", inst.containerName]).catch(() => {});
+    inst.process.kill();
+    await fs
+      .rm(path.join(RUNNER_ROOT, deploymentId), {
+        recursive: true,
+        force: true,
+      })
+      .catch(() => {});
+  }
+
+  /** Periodically stops instances that haven't been accessed recently. */
+  private static startReaper(): void {
+    if (this.reaperStarted) return;
+    this.reaperStarted = true;
+    const timer = setInterval(() => {
+      const now = Date.now();
+      for (const [id, inst] of this.instances) {
+        if (now - inst.lastAccessed > IDLE_TIMEOUT_MS) {
+          console.log(`[Runner] Reaping idle deployment ${id}`);
+          void this.stopInstance(id);
+        }
+      }
+    }, REAP_INTERVAL_MS);
+    // Don't keep the event loop alive just for the reaper.
+    timer.unref?.();
+  }
+
+  /** Evicts the least-recently-used instance while at/over the cap. */
+  private static async evictIfNeeded(): Promise<void> {
+    while (this.instances.size >= MAX_INSTANCES) {
+      let lruId: string | null = null;
+      let oldest = Infinity;
+      for (const [id, inst] of this.instances) {
+        if (inst.lastAccessed < oldest) {
+          oldest = inst.lastAccessed;
+          lruId = id;
+        }
+      }
+      if (!lruId) break;
+      console.log(`[Runner] Instance cap reached, evicting LRU ${lruId}`);
+      await this.stopInstance(lruId);
+    }
   }
 
   /**
@@ -116,11 +179,16 @@ export class RunnerService {
     startCommand: string,
     nodeVersion = "20",
   ): Promise<number> {
+    this.startReaper();
+
     const existing = this.instances.get(deploymentId);
     if (existing) {
       existing.lastAccessed = Date.now();
       return existing.port;
     }
+
+    // Bound concurrent warm servers so they can't exhaust host RAM.
+    await this.evictIfNeeded();
 
     console.log(`[Runner] Cold starting deployment ${deploymentId}...`);
 
@@ -174,6 +242,9 @@ export class RunnerService {
       containerName,
       "-p",
       `127.0.0.1:${port}:${port}`,
+      // Free-Tier RAM guardrails (no-op unless RUNNER_MEMORY is set).
+      ...(RUNNER_MEMORY ? [`--memory=${RUNNER_MEMORY}`] : []),
+      ...(RUNNER_MEMORY_SWAP ? [`--memory-swap=${RUNNER_MEMORY_SWAP}`] : []),
       "-e",
       `PORT=${port}`,
       "-e",

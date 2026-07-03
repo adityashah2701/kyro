@@ -1,0 +1,69 @@
+# Free-Tier overlay for docker-compose.yml — caps the memory of the infra
+# containers and tunes them for a ~1 GB host, WITHOUT changing the base file
+# (so production keeps using the untuned, roomier defaults).
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.freetier.yml up -d
+#
+# Notes:
+#  - Ports are re-bound to 127.0.0.1 so infra is never exposed to the internet.
+#  - mem_limit is a hard ceiling; the tuning flags keep each service's baseline
+#    footprint small so all three fit alongside the Node processes + dockerd.
+#  - restart: unless-stopped ensures all three services come back automatically
+#    after an instance reboot (Free Tier instances reboot during maintenance).
+services:
+  postgres:
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5432:5432"
+    mem_limit: 256m
+    # Shrink Postgres' memory appetite for a tiny box.
+    command:
+      - "postgres"
+      - "-c"
+      - "shared_buffers=64MB"
+      - "-c"
+      - "max_connections=30"
+      - "-c"
+      - "work_mem=2MB"
+      - "-c"
+      - "maintenance_work_mem=32MB"
+      - "-c"
+      - "effective_cache_size=128MB"
+
+  redis:
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:6379:6379"
+    mem_limit: 96m
+    # Cap Redis and evict least-recently-used keys under pressure.
+    #
+    # WHY allkeys-lru (not noeviction):
+    #   `noeviction` causes Redis to *error* on new writes when the memory
+    #   ceiling is hit — BullMQ would fail to enqueue jobs. `allkeys-lru`
+    #   instead evicts the coldest keys, keeping the service alive. BullMQ
+    #   job data is small (~1–2 KB each) so 64 MB holds thousands of jobs
+    #   before any eviction occurs; in practice eviction never happens.
+    #
+    # WHY no persistence (--save "" --appendonly no):
+    #   Job queue state lives in Redis but is reconstructed from Postgres on
+    #   worker restart (BullMQ re-scans active/waiting jobs). Disabling AOF
+    #   and RDB removes the fsync overhead and avoids filling the small EBS
+    #   volume with write-ahead logs.
+    command:
+      - "redis-server"
+      - "--maxmemory"
+      - "64mb"
+      - "--maxmemory-policy"
+      - "allkeys-lru"
+      - "--save"
+      - ""
+      - "--appendonly"
+      - "no"
+
+  minio:
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
+    mem_limit: 256m

@@ -15,8 +15,10 @@ const queueOptions: QueueOptions = {
       type: "exponential",
       delay: 1000,
     },
+    // Bound Redis memory/disk: drop completed jobs, and keep only the most
+    // recent failures instead of retaining them forever (important on Free Tier).
     removeOnComplete: true,
-    removeOnFail: false,
+    removeOnFail: { count: 50 },
   },
 };
 
