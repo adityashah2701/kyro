@@ -20,6 +20,13 @@ const worker = new Worker<QueueJobData>(
   {
     connection: redisConfig,
     concurrency: parseInt(process.env.WORKER_CONCURRENCY || "1", 10),
+    // Deployment jobs are long-running (docker install + build + upload can take
+    // minutes). Give the lock a generous duration so a slow build is never
+    // mistaken for a dead worker, and tolerate a couple of stalls so a dev
+    // restart (tsx watch) or a brief hiccup retries instead of failing outright.
+    lockDuration: 300_000, // 5 min before an unrenewed lock is considered dead
+    stalledInterval: 60_000, // how often to scan for stalled jobs
+    maxStalledCount: 3, // allow retries after transient stalls
   },
 );
 

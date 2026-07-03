@@ -13,6 +13,13 @@ export interface StorageProvider {
   uploadDirectory(localDir: string, prefix: string): Promise<void>;
 
   /**
+   * Uploads a single local file to the given object key.
+   * @param localPath The local file path
+   * @param objectName The full object key in the storage bucket
+   */
+  uploadFile(localPath: string, objectName: string): Promise<void>;
+
+  /**
    * Downloads an entire directory recursively from the storage provider.
    * @param prefix The prefix (folder) in the storage bucket
    * @param localDir The local directory path
@@ -26,6 +33,12 @@ export interface StorageProvider {
   downloadStream(
     filePath: string,
   ): Promise<{ stream: Readable; contentType: string; size: number } | null>;
+
+  /**
+   * Cheaply checks whether an object exists (HEAD / statObject only, no body).
+   * @param filePath The file path in the storage bucket
+   */
+  objectExists(filePath: string): Promise<boolean>;
 }
 
 export class MinioStorageProvider implements StorageProvider {
@@ -85,6 +98,16 @@ export class MinioStorageProvider implements StorageProvider {
     }
   }
 
+  public async uploadFile(
+    localPath: string,
+    objectName: string,
+  ): Promise<void> {
+    const contentType = mime.lookup(localPath) || "application/octet-stream";
+    await this.client.fPutObject(this.bucketName, objectName, localPath, {
+      "Content-Type": contentType,
+    });
+  }
+
   public async downloadDirectory(
     prefix: string,
     localDir: string,
@@ -125,6 +148,18 @@ export class MinioStorageProvider implements StorageProvider {
         }
       });
     });
+  }
+
+  public async objectExists(filePath: string): Promise<boolean> {
+    try {
+      await this.client.statObject(this.bucketName, filePath);
+      return true;
+    } catch (error: any) {
+      if (error.code === "NotFound" || error.code === "NoSuchKey") {
+        return false;
+      }
+      throw error;
+    }
   }
 
   public async downloadStream(

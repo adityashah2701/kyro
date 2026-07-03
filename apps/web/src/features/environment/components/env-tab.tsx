@@ -52,9 +52,9 @@ const ENV_LABELS: Record<Environment, string> = {
 };
 
 const ENV_COLORS: Record<Environment, string> = {
-  development: "bg-blue-500/10 text-blue-400 border-blue-500/20",
-  preview: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20",
-  production: "bg-green-500/10 text-green-400 border-green-500/20",
+  development: "bg-info/10 text-info border-info/20",
+  preview: "bg-warning/10 text-warning border-warning/20",
+  production: "bg-success/10 text-success border-success/20",
 };
 
 const MASK = "••••••••";
@@ -126,11 +126,11 @@ function validateAndBuildRows(
 }
 
 const STATUS_STYLE: Record<ImportStatus, string> = {
-  ready: "bg-emerald-500/10 text-emerald-500 border-emerald-500/20",
-  duplicate: "bg-sky-500/10 text-sky-500 border-sky-500/20",
-  invalid: "bg-amber-500/10 text-amber-500 border-amber-500/20",
-  reserved: "bg-violet-500/10 text-violet-500 border-violet-500/20",
-  imported: "bg-emerald-500/10 text-emerald-500 border-emerald-500/20",
+  ready: "bg-success/10 text-success border-success/20",
+  duplicate: "bg-info/10 text-info border-info/20",
+  invalid: "bg-warning/10 text-warning border-warning/20",
+  reserved: "bg-brand/10 text-brand border-brand/20",
+  imported: "bg-success/10 text-success border-success/20",
   failed: "bg-destructive/10 text-destructive border-destructive/20",
 };
 
@@ -662,7 +662,7 @@ export function EnvTab({ variables, projectId }: Props) {
                                   )
                                 )
                               }
-                              className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded border ml-auto transition-colors ${row.isSecret ? "bg-yellow-500/10 text-yellow-400 border-yellow-500/30" : "text-muted-foreground border-border"}`}
+                              className={`ml-auto flex items-center gap-1 rounded border px-2 py-0.5 text-xs transition-colors ${row.isSecret ? "border-warning/30 bg-warning/10 text-warning" : "border-border text-muted-foreground"}`}
                             >
                               {row.isSecret ? (
                                 <Lock className="h-3 w-3" />
@@ -1019,7 +1019,7 @@ export function EnvTab({ variables, projectId }: Props) {
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         {v.isSecret && (
-                          <Lock className="h-3 w-3 text-yellow-500 flex-shrink-0" />
+                          <Lock className="size-3 shrink-0 text-warning" />
                         )}
                         <span className="font-mono font-medium text-sm">
                           {v.key}

@@ -22,6 +22,26 @@ const storage = new MinioStorageProvider(
 
 const proxyServer = httpProxy.createProxyServer({});
 
+/**
+ * Per-deployment cache of the serve mode: true = static files, false = live server.
+ * Decided from the actual build output (presence of a root index.html), not from
+ * project config — so any framework that emits a static site (Vite, CRA, Vue,
+ * Angular, Astro, static HTML, Next static export) is served statically, and only
+ * true SSR builds fall through to the runner. Probed once per artifact, then cached.
+ */
+const serveModeCache = new Map<string, boolean>();
+
+async function isStaticDeployment(artifactLocation: string): Promise<boolean> {
+  const cached = serveModeCache.get(artifactLocation);
+  if (cached !== undefined) return cached;
+
+  const hasIndex = await storage.objectExists(
+    path.posix.join(artifactLocation, "index.html"),
+  );
+  serveModeCache.set(artifactLocation, hasIndex);
+  return hasIndex;
+}
+
 // Handle proxy errors gracefully
 proxyServer.on("error", (err, req, res) => {
   console.error("[HTTP Proxy Error]:", err);
@@ -48,13 +68,20 @@ app.use(async (req, res, next) => {
       return res.status(404).send("Deployment not found or inactive.");
     }
 
-    // Dynamic Backend Routing (Serverless-style)
-    if (route.startCommand) {
+    // Decide how to serve this deployment from its actual build output, not from
+    // project config. A build that produced a root index.html is a static site and
+    // is always served from MinIO (fast + reliable). Only a build with no index.html
+    // AND a configured start command is treated as a live server (SSR).
+    const serveStatic = await isStaticDeployment(route.artifactLocation);
+
+    // Dynamic Backend Routing (Serverless-style) — SSR builds only
+    if (!serveStatic && route.startCommand) {
       try {
         const port = await RunnerService.getInstance(
           route.deploymentId,
           route.artifactLocation,
           route.startCommand,
+          route.nodeVersion,
         );
 
         // Proxy the request to the dynamically spun-up local Node server

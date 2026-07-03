@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CopyButton } from "@/components/ui/copy-button";
 import { toast } from "sonner";
 import {
   addDomainAction,
@@ -118,21 +119,21 @@ export function DomainsTab({
       case "ready":
       case "configured":
         return (
-          <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-100 px-2 py-1 rounded">
-            <CheckCircle2 className="h-3 w-3" /> {label}
+          <span className="inline-flex items-center gap-1 rounded-md bg-success/10 px-2 py-1 text-xs font-medium text-success">
+            <CheckCircle2 className="size-3" /> {label}
           </span>
         );
       case "failed":
       case "expired":
         return (
-          <span className="inline-flex items-center gap-1 text-xs font-medium text-red-700 bg-red-100 px-2 py-1 rounded">
-            <XCircle className="h-3 w-3" /> Failed
+          <span className="inline-flex items-center gap-1 rounded-md bg-destructive/10 px-2 py-1 text-xs font-medium text-destructive">
+            <XCircle className="size-3" /> Failed
           </span>
         );
       default:
         return (
-          <span className="inline-flex items-center gap-1 text-xs font-medium text-yellow-700 bg-yellow-100 px-2 py-1 rounded">
-            <Clock className="h-3 w-3" /> Pending
+          <span className="inline-flex items-center gap-1 rounded-md bg-warning/10 px-2 py-1 text-xs font-medium text-warning">
+            <Clock className="size-3" /> Pending
           </span>
         );
     }
@@ -193,9 +194,10 @@ export function DomainsTab({
                       size="sm"
                       onClick={() => handleRemove(d.id)}
                       disabled={isProcessing}
-                      className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                      aria-label="Remove domain"
+                      className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Trash2 className="size-4" />
                     </Button>
                   </div>
                 </div>
@@ -228,17 +230,22 @@ export function DomainsTab({
                       {instructions.records.map((r, i) => (
                         <div
                           key={i}
-                          className="flex flex-col sm:flex-row gap-2 bg-background p-2 rounded text-sm border font-mono"
+                          className="flex flex-col gap-2 rounded-md border bg-background p-2 font-mono text-sm sm:flex-row sm:items-center"
                         >
-                          <span className="w-16 text-muted-foreground">
+                          <span className="w-16 shrink-0 text-muted-foreground">
                             {r.type}
                           </span>
-                          <span className="w-24 text-muted-foreground">
+                          <span className="w-24 shrink-0 text-muted-foreground">
                             {r.name}
                           </span>
                           <span className="flex-1 overflow-auto">
                             {r.value}
                           </span>
+                          <CopyButton
+                            value={r.value}
+                            size="icon-xs"
+                            label={`Copy ${r.type} record`}
+                          />
                         </div>
                       ))}
                     </div>

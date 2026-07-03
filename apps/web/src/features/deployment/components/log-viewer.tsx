@@ -48,7 +48,7 @@ export function LogViewer({ deploymentId }: { deploymentId: string }) {
   }, [logs]);
 
   return (
-    <ScrollArea className="flex-1 bg-black text-green-400 p-4 rounded-md font-mono text-xs overflow-auto">
+    <ScrollArea className="flex-1 overflow-auto rounded-lg bg-[oklch(0.14_0_0)] p-4 font-mono text-xs text-success/90 ring-1 ring-white/10">
       {isConnecting && !logs && (
         <div className="flex items-center gap-2 text-muted-foreground mb-4">
           <Loader2 className="h-4 w-4 animate-spin" />

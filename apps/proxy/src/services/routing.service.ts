@@ -5,6 +5,13 @@ export interface ResolvedRoute {
   projectId: string;
   artifactLocation: string;
   startCommand: string | null;
+  nodeVersion: string;
+}
+
+/** Extracts the node major version recorded on a deployment, defaulting to 20. */
+function nodeVersionOf(deployment: { metadata?: unknown }): string {
+  const meta = deployment.metadata as { nodeVersion?: string } | null;
+  return meta?.nodeVersion || "20";
 }
 
 export class RoutingService {
@@ -46,6 +53,7 @@ export class RoutingService {
           projectId: customDomainMatch.projectId,
           artifactLocation: activeDeployment.artifactLocation,
           startCommand: proj?.startCommand || null,
+          nodeVersion: nodeVersionOf(activeDeployment),
         };
       }
     }
@@ -76,6 +84,7 @@ export class RoutingService {
         projectId: previewMatch.projectId,
         artifactLocation: previewMatch.artifactLocation,
         startCommand: proj?.startCommand || null,
+        nodeVersion: nodeVersionOf(previewMatch),
       };
     }
 
@@ -101,6 +110,7 @@ export class RoutingService {
           projectId: projectMatch.id,
           artifactLocation: activeDeployment.artifactLocation,
           startCommand: projectMatch.startCommand || null,
+          nodeVersion: nodeVersionOf(activeDeployment),
         };
       }
     }

@@ -8,7 +8,6 @@ import {
   MoreVertical,
   Globe,
   Lock,
-  Activity,
   Trash2,
   Archive,
   Edit,
@@ -104,7 +103,7 @@ export function ProjectCard({
 
   return (
     <motion.div variants={itemVariants}>
-      <Card className="group relative overflow-hidden flex flex-col h-full hover:border-foreground/20 transition-all">
+      <Card className="group relative flex h-full flex-col overflow-hidden ring-foreground/10 transition-all hover:ring-brand/40">
         <Link
           href={`/projects/${id}`}
           className="absolute inset-0 z-0"
@@ -114,8 +113,8 @@ export function ProjectCard({
         <CardHeader className="flex flex-row items-start justify-between pb-2 z-10 pointer-events-none">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center pointer-events-auto">
-                <FolderOpen className="h-4 w-4" />
+              <div className="pointer-events-auto flex size-8 items-center justify-center rounded-lg bg-brand/10 text-brand">
+                <FolderOpen className="size-4" />
               </div>
               <CardTitle className="text-base pointer-events-auto hover:underline relative">
                 <Link href={`/projects/${id}`}>{name}</Link>
@@ -180,10 +179,6 @@ export function ProjectCard({
             </Badge>
           </div>
           <div className="flex items-center gap-4 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1">
-              <Activity className="h-3 w-3" />
-              12d
-            </span>
             <span>
               {formatDistanceToNow(new Date(updatedAt), { addSuffix: true })}
             </span>

@@ -31,6 +31,11 @@ export class DockerService {
 
     // Some package managers like pnpm/bun might not be on the node alpine image by default.
     // Corepack can enable yarn/pnpm if needed.
+    //
+    // NOTE: We work directly in /workspace (the mounted volume) instead of copying files
+    // to /app. The previous copy approach (cp -a /workspace/. /app/) was failing on macOS
+    // Docker Desktop, leaving /app empty and causing ENOENT errors when npm tried to read
+    // package.json. The volume mount itself is reliable; the cp was the problem.
     const scriptContent = `#!/bin/sh
 set -e
 
@@ -39,10 +44,13 @@ timestamp() {
 }
 
 echo "\\n[$(timestamp)] 🚀 Setup Environment..."
-# Copy files to an internal directory to avoid Docker Desktop macOS volume mount issues during npm install
-mkdir -p /app
-cp -a /workspace/. /app/
-cd /app
+cd /workspace
+
+# Sanity check: ensure workspace files are accessible
+if [ ! -f "/workspace/package.json" ]; then
+  echo "⚠️  No package.json found in /workspace. Listing workspace contents:"
+  ls -la /workspace || true
+fi
 
 corepack enable || true
 
@@ -56,21 +64,6 @@ ${detection.installCommand}
 echo "\\n[$(timestamp)] 🔨 Building Application..."
 ${detection.buildCommand}
 
-echo "\\n[$(timestamp)] 📂 Extracting Output..."
-# Copy the built output back to the mounted workspace
-if [ "${detection.outputDirectory}" = "." ] || [ "${detection.outputDirectory}" = "" ]; then
-  cp -a /app/. /workspace/
-else
-  if [ -e "/app/${detection.outputDirectory}" ]; then
-    cp -a /app/${detection.outputDirectory} /workspace/
-  else
-    echo "⚠️  Warning: Output directory '${detection.outputDirectory}' not found. Proceeding with existing files."
-  fi
-  # Always copy node_modules back so the runtime has the installed dependencies
-  if [ -d "/app/node_modules" ]; then
-    cp -a /app/node_modules /workspace/
-  fi
-fi
 echo "\\n[$(timestamp)] ✨ Build Finished successfully!\\n"
 `;
 

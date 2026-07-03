@@ -82,7 +82,7 @@ export function GitHubConnectCard({
               <div>
                 <p className="flex items-center gap-2 font-medium">
                   {username || "Connected"}
-                  <CheckCircle2 className="h-4 w-4 text-green-500" />
+                  <CheckCircle2 className="size-4 text-success" />
                 </p>
                 <p className="text-sm text-muted-foreground">
                   Kyro App is installed
