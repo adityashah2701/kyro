@@ -10,7 +10,7 @@ const SERVER_BUNDLE_NAME = "__server_bundle.tgz";
 
 // Docker Desktop shares /tmp by default; /var/folders (os.tmpdir on macOS) is
 // not guaranteed to be mountable, so we keep runner workdirs under /tmp.
-const RUNNER_ROOT = "/tmp/kyro-runners";
+const RUNNER_ROOT = process.env.RUNNER_DIRECTORY || "/tmp/kyro-runners";
 
 // Free-Tier guardrails. A running SSR container holds ~80-150 MB; on a 1 GB box
 // we must both cap each container's RAM and bound how many stay warm, evicting
