@@ -17,7 +17,7 @@ export default async function proxy(request: NextRequest) {
 
   let session = null;
   try {
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://127.0.0.1:3000";
+    const baseUrl = request.nextUrl.origin;
     const response = await fetch(`${baseUrl}/api/auth/get-session`, {
       headers: {
         cookie: request.headers.get("cookie") || "",

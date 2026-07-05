@@ -5,8 +5,7 @@ import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 
 import { ProjectsClient } from "./client";
-import { connectGitHub } from "@/features/github/actions";
-import { redirect } from "next/navigation";
+import { GitHubConnector } from "./github-connector";
 
 export const metadata = {
   title: "Projects | Kyro",
@@ -25,12 +24,7 @@ export default async function ProjectsPage(props: {
   const installationId = searchParams.installation_id;
 
   if (installationId) {
-    try {
-      await connectGitHub(installationId);
-    } catch (e) {
-      console.error("Failed to connect GitHub:", e);
-    }
-    redirect("/projects");
+    return <GitHubConnector installationId={installationId} />;
   }
 
   const session = await auth.api.getSession({

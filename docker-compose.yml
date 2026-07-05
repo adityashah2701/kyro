@@ -37,7 +37,7 @@ services:
       - "--maxmemory"
       - "64mb"
       - "--maxmemory-policy"
-      - "allkeys-lru"
+      - "noeviction"
       - "--save"
       - ""
       - "--appendonly"
