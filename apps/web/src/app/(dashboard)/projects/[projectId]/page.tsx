@@ -80,9 +80,15 @@ export default async function ProjectDetailsPage(props: {
   );
 
   const baseDomain = process.env.BASE_DOMAIN || "localhost";
+  const isLocal = baseDomain === "localhost";
+  const scheme = isLocal ? "http" : "https";
+  const portSuffix = isLocal ? ":8000" : "";
+
   const mainHost = verifiedPrimaryDomain
     ? verifiedPrimaryDomain.hostname
     : `${projectData.slug}.${baseDomain}`;
+
+  const visitUrl = `${scheme}://${mainHost}${portSuffix}`;
 
   return (
     <PageContainer>
@@ -109,7 +115,7 @@ export default async function ProjectDetailsPage(props: {
             projectId={params.projectId}
             isRepositoryLinked={!!linkedRepo}
           />
-          <a href={`http://${mainHost}`} target="_blank" rel="noreferrer">
+          <a href={visitUrl} target="_blank" rel="noreferrer">
             <Button variant="outline" size="sm">
               <ExternalLink className="mr-2 h-4 w-4" />
               Visit

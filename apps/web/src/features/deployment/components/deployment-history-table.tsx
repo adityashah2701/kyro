@@ -191,37 +191,45 @@ export function DeploymentHistoryTable({
                 </TableCell>
                 <TableCell className="text-sm">
                   {d.previewUrl ? (
-                    <div className="flex items-center gap-1.5 group">
-                      <a
-                        href={`http://${d.previewUrl}:8000`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-foreground hover:text-primary transition-colors truncate max-w-[150px] sm:max-w-[200px]"
-                        title={d.previewUrl}
-                      >
-                        {d.previewUrl.length > 28
-                          ? d.previewUrl.substring(0, 28) + "..."
-                          : d.previewUrl}
-                      </a>
-                      <div className="flex items-center opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-                        <CopyButton
-                          value={`http://${d.previewUrl}:8000`}
-                          size="icon-xs"
-                          label="Copy URL"
-                          toastMessage="URL copied to clipboard"
-                        />
-                        <a
-                          href={`http://${d.previewUrl}:8000`}
-                          target="_blank"
-                          rel="noreferrer"
-                          title="Open link"
-                          aria-label="Open preview in new tab"
-                          className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-                        >
-                          <ExternalLink className="size-3" />
-                        </a>
-                      </div>
-                    </div>
+                    (() => {
+                      const isLocal = d.previewUrl.includes("localhost");
+                      const scheme = isLocal ? "http" : "https";
+                      const portSuffix = isLocal ? ":8000" : "";
+                      const previewLink = `${scheme}://${d.previewUrl}${portSuffix}`;
+                      return (
+                        <div className="flex items-center gap-1.5 group">
+                          <a
+                            href={previewLink}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-foreground hover:text-primary transition-colors truncate max-w-[150px] sm:max-w-[200px]"
+                            title={d.previewUrl}
+                          >
+                            {d.previewUrl.length > 28
+                              ? d.previewUrl.substring(0, 28) + "..."
+                              : d.previewUrl}
+                          </a>
+                          <div className="flex items-center opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+                            <CopyButton
+                              value={previewLink}
+                              size="icon-xs"
+                              label="Copy URL"
+                              toastMessage="URL copied to clipboard"
+                            />
+                            <a
+                              href={previewLink}
+                              target="_blank"
+                              rel="noreferrer"
+                              title="Open link"
+                              aria-label="Open preview in new tab"
+                              className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                            >
+                              <ExternalLink className="size-3" />
+                            </a>
+                          </div>
+                        </div>
+                      );
+                    })()
                   ) : (
                     <span className="text-muted-foreground">-</span>
                   )}
