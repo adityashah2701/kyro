@@ -6,8 +6,6 @@ services:
       POSTGRES_USER: kyro
       POSTGRES_PASSWORD: kyro_password
       POSTGRES_DB: kyro
-    ports:
-      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     mem_limit: 256m
@@ -27,8 +25,6 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
-    ports:
-      - "127.0.0.1:6379:6379"
     volumes:
       - redis_data:/data
     mem_limit: 96m
@@ -49,9 +45,6 @@ services:
     environment:
       MINIO_ROOT_USER: kyro_admin
       MINIO_ROOT_PASSWORD: kyro_password
-    ports:
-      - "127.0.0.1:9000:9000"
-      - "127.0.0.1:9001:9001"
     volumes:
       - minio_data:/data
     mem_limit: 256m
