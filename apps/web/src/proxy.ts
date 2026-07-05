@@ -17,14 +17,12 @@ export default async function proxy(request: NextRequest) {
 
   let session = null;
   try {
-    const response = await fetch(
-      `${request.nextUrl.origin}/api/auth/get-session`,
-      {
-        headers: {
-          cookie: request.headers.get("cookie") || "",
-        },
-      }
-    );
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://127.0.0.1:3000";
+    const response = await fetch(`${baseUrl}/api/auth/get-session`, {
+      headers: {
+        cookie: request.headers.get("cookie") || "",
+      },
+    });
     if (response.ok) {
       session = await response.json();
     }
