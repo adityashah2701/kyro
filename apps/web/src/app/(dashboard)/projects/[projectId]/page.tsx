@@ -109,7 +109,7 @@ export default async function ProjectDetailsPage(props: {
             projectId={params.projectId}
             isRepositoryLinked={!!linkedRepo}
           />
-          <a href={`http://${mainHost}:8000`} target="_blank" rel="noreferrer">
+          <a href={`http://${mainHost}`} target="_blank" rel="noreferrer">
             <Button variant="outline" size="sm">
               <ExternalLink className="mr-2 h-4 w-4" />
               Visit

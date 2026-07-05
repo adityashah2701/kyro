@@ -259,7 +259,7 @@ export const processDeploymentJob = async (job: Job<QueueJobData>) => {
     });
     await streamLog(
       deploymentId,
-      `🎉 Deployment finished successfully! Preview: http://${previewUrl}:8000`,
+      `🎉 Deployment finished successfully! Preview: http://${previewUrl}`,
     );
 
     logger.info(
