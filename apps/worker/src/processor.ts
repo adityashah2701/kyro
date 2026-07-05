@@ -85,6 +85,10 @@ export const processDeploymentJob = async (job: Job<QueueJobData>) => {
       throw new Error(`Project ${deploymentRecord.projectId} not found`);
     }
 
+    // Clean up any leftover files from previous crashed attempts
+    await fs
+      .rm(workspacePath, { recursive: true, force: true })
+      .catch(() => {});
     await fs.mkdir(workspacePath, { recursive: true });
     logger.info(
       { deploymentId, workspacePath },
