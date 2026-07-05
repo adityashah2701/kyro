@@ -86,9 +86,16 @@ export const processDeploymentJob = async (job: Job<QueueJobData>) => {
     }
 
     // Clean up any leftover files from previous crashed attempts
-    await fs
-      .rm(workspacePath, { recursive: true, force: true })
-      .catch(() => {});
+    try {
+      await fs.rm(workspacePath, { recursive: true, force: true });
+    } catch (err: any) {
+      if (err.code === "EACCES" || err.code === "EPERM") {
+        const { execSync } = require("child_process");
+        try {
+          execSync(`sudo rm -rf "${workspacePath}"`);
+        } catch (e) {}
+      }
+    }
     await fs.mkdir(workspacePath, { recursive: true });
     logger.info(
       { deploymentId, workspacePath },
@@ -291,8 +298,26 @@ export const processDeploymentJob = async (job: Job<QueueJobData>) => {
   } finally {
     // 8. Cleanup
     try {
-      await fs.rm(workspacePath, { recursive: true, force: true });
-      await fs.rm(getLogFilePath(deploymentId), { force: true });
+      try {
+        await fs.rm(workspacePath, { recursive: true, force: true });
+      } catch (err: any) {
+        if (err.code === "EACCES" || err.code === "EPERM") {
+          const { execSync } = require("child_process");
+          execSync(`sudo rm -rf "${workspacePath}"`);
+        } else {
+          throw err;
+        }
+      }
+      try {
+        await fs.rm(getLogFilePath(deploymentId), { force: true });
+      } catch (err: any) {
+        if (err.code === "EACCES" || err.code === "EPERM") {
+          const { execSync } = require("child_process");
+          execSync(`sudo rm -f "${getLogFilePath(deploymentId)}"`);
+        } else {
+          throw err;
+        }
+      }
       logger.info(
         { deploymentId, workspacePath },
         "Cleaned up deployment workspace",
