@@ -17,7 +17,7 @@ export default async function proxy(request: NextRequest) {
 
   let session = null;
   try {
-    const baseUrl = request.nextUrl.origin;
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
     const response = await fetch(`${baseUrl}/api/auth/get-session`, {
       headers: {
         cookie: request.headers.get("cookie") || "",
