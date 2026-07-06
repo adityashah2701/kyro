@@ -112,147 +112,65 @@ pm2 startup
 
 ---
 
-## 6. Main Dashboard SSL (Nginx & Certbot)
+## 6. Main Dashboard & Wildcard Routing (Caddy)
 
-First, ensure you have an `A Record` in your DNS provider (e.g., Spaceship) pointing `kyro.adityashah27.dev` to your EC2 IP.
+We use **Caddy** instead of Nginx because Caddy natively supports **On-Demand TLS**, which is essential for a PaaS to automatically provision SSL certificates for custom domains (like `portfolio.com`) without manual intervention.
 
-Set up the basic Nginx configuration for your dashboard:
+### Step 6A: Install Caddy
 
 ```bash
-sudo nano /etc/nginx/sites-available/kyro
+sudo apt install -y debian-keyring debian-archive-keyring apt-transport-https curl
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/caddy-stable.list
+sudo apt update
+sudo apt install caddy
 ```
 
-Paste this basic config:
+### Step 6B: Wildcard SSL Preparation
 
-```nginx
-server {
-    listen 80;
-    server_name kyro.adityashah27.dev;
+In your DNS provider (Spaceship), ensure you have:
 
-    location / {
-        proxy_pass http://127.0.0.1:3000;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
+1. **A Record** for `kyro` pointing to your EC2 IP.
+2. **Wildcard A Record** for `*.kyro` pointing to your EC2 IP.
+
+### Step 6C: Caddyfile Configuration
+
+Open your Caddyfile:
+
+```bash
+sudo nano /etc/caddy/Caddyfile
+```
+
+Replace the entire file with this configuration:
+
+```caddyfile
+{
+    # Enable On-Demand TLS
+    on_demand_tls {
+        ask http://127.0.0.1:3000/api/caddy/check-domain
+        interval 2m
+        burst 5
     }
+}
+
+# 1. Main Dashboard
+kyro.adityashah27.dev {
+    reverse_proxy 127.0.0.1:3000
+}
+
+# 2. User Deployments (Wildcard & Custom Domains)
+https:// {
+    tls {
+        on_demand
+    }
+    reverse_proxy 127.0.0.1:8000
 }
 ```
 
-Enable the site and get the SSL certificate:
+Restart Caddy to apply changes:
 
 ```bash
-sudo ln -s /etc/nginx/sites-available/kyro /etc/nginx/sites-enabled/
-sudo nginx -t
-sudo systemctl reload nginx
-
-# Automatically get SSL and update Nginx for the dashboard
-sudo certbot --nginx -d kyro.adityashah27.dev
+sudo systemctl restart caddy
 ```
 
----
-
-## 7. Wildcard Subdomain Routing (For User Deployments)
-
-To give every user deployment a secure URL like `https://project-hash.kyro.adityashah27.dev`, you need a wildcard SSL certificate.
-
-### Step 7A: Get the Wildcard Certificate
-
-Run the manual Certbot command:
-
-```bash
-sudo certbot certonly --manual --preferred-challenges=dns -d "*.kyro.adityashah27.dev"
-```
-
-**Important Workflow:**
-
-1. Certbot will give you a random string.
-2. Go to your DNS provider (Spaceship) and create a **TXT Record** with the host `_acme-challenge.kyro` and paste the random string.
-3. Keep checking [Google Admin Toolbox](https://toolbox.googleapps.com/apps/dig/#TXT/_acme-challenge.kyro.adityashah27.dev). **Wait until the new string shows up.**
-4. Once verified on Google, press **Enter** in your terminal.
-5. Note the folder name Certbot prints at the end (e.g., `kyro.adityashah27.dev-0001`).
-
-### Step 7B: Add Wildcard DNS Record
-
-While in your DNS provider, create a **Wildcard A Record**:
-
-- Type: `A Record`
-- Host/Name: `*.kyro`
-- Value/IP: `<Your EC2 Public IP Address>`
-
-### Step 7C: Final Nginx Configuration
-
-Overwrite your Nginx config to handle both the dashboard (port 3000) and the user deployments (kyro-proxy on port 8000).
-
-```bash
-sudo nano /etc/nginx/sites-available/kyro
-```
-
-Replace the entire file with this (make sure to replace `YOUR_CERT_FOLDER` with the folder name from Step 7A):
-
-```nginx
-server {
-    server_name kyro.adityashah27.dev;
-
-    location / {
-        proxy_pass http://127.0.0.1:3000;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-
-    listen 443 ssl;
-    ssl_certificate /etc/letsencrypt/live/kyro.adityashah27.dev/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/kyro.adityashah27.dev/privkey.pem;
-    include /etc/letsencrypt/options-ssl-nginx.conf;
-    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
-}
-
-server {
-    if ($host = kyro.adityashah27.dev) {
-        return 301 https://$host$request_uri;
-    }
-
-    listen 80;
-    server_name kyro.adityashah27.dev;
-    return 404;
-}
-
-# --- WILDCARD ROUTING FOR USER DEPLOYMENTS ---
-server {
-    listen 80;
-    listen 443 ssl;
-    server_name *.kyro.adityashah27.dev;
-
-    # Replace YOUR_CERT_FOLDER (e.g., kyro.adityashah27.dev-0001)
-    ssl_certificate /etc/letsencrypt/live/YOUR_CERT_FOLDER/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/YOUR_CERT_FOLDER/privkey.pem;
-
-    location / {
-        proxy_pass http://127.0.0.1:8000;
-
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
-```
-
-Apply the changes:
-
-```bash
-sudo nginx -t
-sudo systemctl restart nginx
-```
-
-You are completely done. All deployments on Kyro will now have automatic HTTPS previews!
+You are completely done. All deployments on Kyro will now have automatic HTTPS previews and custom domains!

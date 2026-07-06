@@ -8,18 +8,10 @@ export interface ISslProvider {
 }
 
 export class MockSslProvider implements ISslProvider {
-  /**
-   * Mocks the issuance of an SSL certificate.
-   * In a real environment, this would interface with Let's Encrypt / ACME.
-   */
   public async issueCertificate(hostname: string): Promise<SslIssuanceResult> {
-    console.log(`[SSL] Starting mock SSL issuance for ${hostname}...`);
-
-    // Simulate network delay
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-
-    console.log(`[SSL] Certificate issued for ${hostname}.`);
-
+    console.log(
+      `[SSL] Caddy On-Demand TLS will handle SSL for ${hostname} upon first request.`
+    );
     return {
       status: "ready",
     };
