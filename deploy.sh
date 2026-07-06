@@ -75,7 +75,7 @@ if [ ! -f ".env" ]; then
     error "Missing .env file. Run setup.sh or create it manually."
 fi
 missing=()
-required_vars=("DATABASE_URL" "REDIS_URL" "MINIO_ROOT_USER" "MINIO_ROOT_PASSWORD" "MINIO_ENDPOINT" "GITHUB_CLIENT_ID" "GITHUB_CLIENT_SECRET" "NEXTAUTH_SECRET" "ENCRYPTION_KEY")
+required_vars=("DATABASE_URL" "BETTER_AUTH_SECRET" "REDIS_HOST" "MINIO_ACCESS_KEY" "MINIO_SECRET_KEY" "MINIO_ENDPOINT" "GITHUB_APP_ID" "GITHUB_APP_PRIVATE_KEY" "ENCRYPTION_KEY" "BASE_DOMAIN")
 for var in "${required_vars[@]}"; do
     if ! grep -q "^${var}=" .env; then
         missing+=("$var")
