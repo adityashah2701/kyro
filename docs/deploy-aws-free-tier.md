@@ -157,23 +157,25 @@ Replace the entire file with this configuration:
 
 ```caddyfile
 {
-    # Enable On-Demand TLS
-    on_demand_tls {
-        ask http://127.0.0.1:3000/api/caddy/check-domain
-    }
+	email adityashah2701.personal@gmail.com
+
+	on_demand_tls {
+		ask http://127.0.0.1:3000/api/caddy/check-domain
+	}
 }
 
-# 1. Main Dashboard
+# Main Kyro Dashboard
 kyro.adityashah27.dev {
-    reverse_proxy 127.0.0.1:3000
+	reverse_proxy 127.0.0.1:3000
 }
 
-# 2. User Deployments (Wildcard & Custom Domains)
+# Preview Deployments & Custom Domains
 https:// {
-    tls {
-        on_demand
-    }
-    reverse_proxy 127.0.0.1:8000
+	tls {
+		on_demand
+	}
+
+	reverse_proxy 127.0.0.1:8000
 }
 ```
 
