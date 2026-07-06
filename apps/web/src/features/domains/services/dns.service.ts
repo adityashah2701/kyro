@@ -26,7 +26,7 @@ export class DnsCheckerService {
         if (cnameRecords.some((record) => record === "cname.kyro.dev")) {
           return { verified: true };
         }
-      } catch (e) {
+      } catch {
         // Ignore ENOTFOUND/ENODATA for CNAME, proceed to check TXT
       }
 
@@ -40,7 +40,7 @@ export class DnsCheckerService {
             return { verified: true };
           }
         }
-      } catch (e) {
+      } catch {
         // Ignore ENOTFOUND/ENODATA
       }
 

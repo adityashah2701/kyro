@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { RESERVED_KEYS, STRICT_KEY_REGEX } from "../utils/env-import-parser";
 
 export const ENVIRONMENT_VALUES = [
   "development",
@@ -7,21 +8,9 @@ export const ENVIRONMENT_VALUES = [
 ] as const;
 export type Environment = (typeof ENVIRONMENT_VALUES)[number];
 
-// POSIX env var key: uppercase letters, digits, and underscores, must not start with digit
-const ENV_KEY_REGEX = /^[A-Z_][A-Z0-9_]*$/;
-
-const RESERVED_KEYS = new Set([
-  "PATH",
-  "HOME",
-  "USER",
-  "SHELL",
-  "TERM",
-  "LANG",
-  "LC_ALL",
-  "NODE_ENV",
-  "PORT",
-  "HOST",
-]);
+// POSIX env var key: uppercase letters, digits, and underscores, must not start
+// with a digit. Single source of truth lives in the .env import parser.
+const ENV_KEY_REGEX = STRICT_KEY_REGEX;
 
 export const envVariableSchema = z.object({
   key: z

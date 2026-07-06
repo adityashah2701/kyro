@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useWizard } from "../wizard-context";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Rocket, Loader2, CheckCircle2 } from "lucide-react";
@@ -15,9 +16,10 @@ import type { FrameworkDefinition } from "../../../frameworks/types";
 export function ReviewStep({
   onOpenChange,
 }: {
-  onOpenChange: (open: boolean) => void;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const { state, setCurrentStep } = useWizard();
+  const router = useRouter();
   const [isDeploying, setIsDeploying] = useState(false);
   const [progress, setProgress] = useState("");
 
@@ -78,9 +80,12 @@ export function ReviewStep({
       setProgress("Ready to deploy!");
       toast.success("Project created successfully!");
 
-      // Close wizard
+      // Close wizard or redirect to new project
       setTimeout(() => {
-        onOpenChange(false);
+        if (onOpenChange) {
+          onOpenChange(false);
+        }
+        router.push(`/projects/${projectId}`);
       }, 1000);
     } catch (error: unknown) {
       toast.error(

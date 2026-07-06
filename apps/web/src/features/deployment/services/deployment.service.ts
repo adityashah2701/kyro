@@ -131,6 +131,34 @@ export async function getDeploymentDetails(
   return existing;
 }
 
+/**
+ * Fetch a single deployment along with a slice of its parent project, for the
+ * deployment details page (breadcrumb + header). Ownership-checked.
+ */
+export async function getDeploymentWithProject(
+  deploymentId: string,
+  userId: string
+) {
+  const [row] = await db
+    .select({
+      deployment,
+      project: {
+        id: project.id,
+        name: project.name,
+        slug: project.slug,
+        framework: project.framework,
+      },
+    })
+    .from(deployment)
+    .leftJoin(project, eq(deployment.projectId, project.id))
+    .where(and(eq(deployment.id, deploymentId), eq(deployment.userId, userId)))
+    .limit(1);
+
+  if (!row) return null;
+
+  return { ...row.deployment, project: row.project };
+}
+
 export async function getUserDeployments(userId: string) {
   const deployments = await db
     .select({

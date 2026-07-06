@@ -66,7 +66,12 @@ export class GitService {
     destinationPath: string,
     isPrivate: boolean,
     installationId?: string,
-  ): Promise<{ commitSha: string; commitMessage: string }> {
+  ): Promise<{
+    commitSha: string;
+    commitMessage: string;
+    commitAuthorName: string | null;
+    committedAt: Date | null;
+  }> {
     const git: SimpleGit = simpleGit();
     let finalCloneUrl = cloneUrl;
 
@@ -122,6 +127,8 @@ export class GitService {
     // Fetch the latest commit info
     let commitSha = "";
     let commitMessage = "";
+    let commitAuthorName: string | null = null;
+    let committedAt: Date | null = null;
 
     try {
       const gitDest = simpleGit(destinationPath);
@@ -130,6 +137,12 @@ export class GitService {
       if (latestCommit) {
         commitSha = latestCommit.hash;
         commitMessage = latestCommit.message;
+        commitAuthorName = latestCommit.author_name || null;
+        const parsedDate = latestCommit.date
+          ? new Date(latestCommit.date)
+          : null;
+        committedAt =
+          parsedDate && !isNaN(parsedDate.getTime()) ? parsedDate : null;
       }
     } catch (e: any) {
       logger.warn(
@@ -141,6 +154,8 @@ export class GitService {
     return {
       commitSha,
       commitMessage,
+      commitAuthorName,
+      committedAt,
     };
   }
 }

@@ -100,7 +100,7 @@ timestamp() {
   date +"%H:%M:%S"
 }
 
-echo "\\n[$(timestamp)] 🚀 Setup Environment..."
+echo "[$(timestamp)] 🚀 Setup Environment..."
 cd /workspace
 
 # Sanity check: ensure workspace files are accessible
@@ -115,13 +115,13 @@ if [ "${detection.packageManager}" = "bun" ]; then
   npm install -g bun
 fi
 
-echo "\\n[$(timestamp)] 📦 Installing Dependencies..."
+echo "[$(timestamp)] 📦 Installing Dependencies..."
 ${detection.installCommand}
 
-echo "\\n[$(timestamp)] 🔨 Building Application..."
+echo "[$(timestamp)] 🔨 Building Application..."
 ${detection.buildCommand}
 
-echo "\\n[$(timestamp)] ✨ Build Finished successfully!\\n"
+echo "[$(timestamp)] ✨ Build Finished successfully!"
 `;
 
     await fs.writeFile(buildScriptPath, scriptContent, { mode: 0o755 });

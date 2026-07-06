@@ -43,8 +43,8 @@ export async function GET(
         deployment.status === "failed" ||
         deployment.status === "cancelled"
       ) {
-        const metadata = deployment.metadata as any;
-        if (metadata?.buildLogs) {
+        const metadata = deployment.metadata as Record<string, unknown> | null;
+        if (metadata && typeof metadata.buildLogs === "string") {
           sendEvent(metadata.buildLogs);
         } else {
           sendEvent("No logs available.");
@@ -66,8 +66,8 @@ export async function GET(
       });
 
       // Send initial connecting message or existing metadata logs if available
-      const metadata = deployment.metadata as any;
-      if (metadata?.buildLogs) {
+      const metadata = deployment.metadata as Record<string, unknown> | null;
+      if (metadata && typeof metadata.buildLogs === "string") {
         sendEvent(metadata.buildLogs);
       } else {
         sendEvent("Connecting to build logs...\n");

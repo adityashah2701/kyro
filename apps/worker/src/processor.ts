@@ -106,13 +106,14 @@ export const processDeploymentJob = async (job: Job<QueueJobData>) => {
     // 2. Cloning
     await updateStatus(deploymentId, "cloning");
     await streamLog(deploymentId, "📥 Cloning repository...");
-    const { commitSha, commitMessage } = await GitService.cloneRepository(
-      repoRecord.cloneUrl,
-      deploymentRecord.branch,
-      workspacePath,
-      repoRecord.isPrivate,
-      githubAcc?.installationId,
-    );
+    const { commitSha, commitMessage, commitAuthorName, committedAt } =
+      await GitService.cloneRepository(
+        repoRecord.cloneUrl,
+        deploymentRecord.branch,
+        workspacePath,
+        repoRecord.isPrivate,
+        githubAcc?.installationId,
+      );
     await streamLog(
       deploymentId,
       `✅ Cloned commit: ${commitSha.substring(0, 7)} - ${commitMessage}`,
@@ -121,7 +122,7 @@ export const processDeploymentJob = async (job: Job<QueueJobData>) => {
     // Save commit info
     await db
       .update(schema.deployment)
-      .set({ commitSha, commitMessage })
+      .set({ commitSha, commitMessage, commitAuthorName, committedAt })
       .where(eq(schema.deployment.id, deploymentId));
 
     // 3. Detecting Framework

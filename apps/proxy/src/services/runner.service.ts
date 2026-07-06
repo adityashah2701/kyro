@@ -33,8 +33,21 @@ interface RunningInstance {
 
 export class RunnerService {
   private static instances = new Map<string, RunningInstance>();
-  private static nextPort = 10000;
   private static reaperStarted = false;
+
+  private static async getFreePort(): Promise<number> {
+    return new Promise((resolve, reject) => {
+      const srv = http.createServer();
+      srv.listen(0, () => {
+        const port = (srv.address() as any).port;
+        srv.close((err) => {
+          if (err) reject(err);
+          else resolve(port);
+        });
+      });
+      srv.on("error", reject);
+    });
+  }
 
   private static storage = new MinioStorageProvider(
     {
@@ -223,8 +236,8 @@ export class RunnerService {
     await this.exec("tar", ["-xzf", tarPath, "-C", appDir]);
     await fs.rm(tarPath, { force: true }).catch(() => {});
 
-    // 3. Assign a port and launch the app inside a container.
-    const port = this.nextPort++;
+    // 3. Assign a free port and launch the app inside a container.
+    const port = await this.getFreePort();
     const containerName = `kyro-run-${deploymentId}`;
     const image = `node:${nodeVersion}-alpine`;
 

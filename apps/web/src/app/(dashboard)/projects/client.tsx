@@ -21,7 +21,6 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
 import { staggerContainer } from "@/lib/motion";
 import { ProjectCard } from "@/features/projects/components/project-card";
-import { ProjectWizardDialog } from "@/features/projects/components/wizard/project-wizard-dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -59,7 +58,6 @@ export function ProjectsClient({
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  const [isModalOpen, setIsModalOpen] = useState(false);
   const [view, setView] = useState<ViewMode>("grid");
 
   // Restore persisted view preference.
@@ -68,14 +66,14 @@ export function ProjectsClient({
     if (saved === "grid" || saved === "list") setView(saved);
   }, []);
 
-  // Open the create modal when navigated to with `?new=1` (e.g. from the
+  // Redirect to new page when navigated to with `?new=1` (e.g. from the
   // command palette), then clean the URL.
   useEffect(() => {
     if (searchParams.get("new") === "1") {
-      setIsModalOpen(true);
       const params = new URLSearchParams(searchParams);
       params.delete("new");
       router.replace(`${pathname}?${params.toString()}`);
+      router.push("/projects/new");
     }
   }, [searchParams, pathname, router]);
 
@@ -110,7 +108,7 @@ export function ProjectsClient({
         title="Projects"
         description="Manage and monitor all your deployed projects."
       >
-        <Button onClick={() => setIsModalOpen(true)}>
+        <Button onClick={() => router.push("/projects/new")}>
           <Plus className="size-4" />
           New Project
         </Button>
@@ -206,7 +204,7 @@ export function ProjectsClient({
           }
           action={
             !searchQuery && (
-              <Button onClick={() => setIsModalOpen(true)}>
+              <Button onClick={() => router.push("/projects/new")}>
                 <Plus className="size-4" />
                 Create Project
               </Button>
@@ -229,8 +227,6 @@ export function ProjectsClient({
           ))}
         </motion.div>
       )}
-
-      <ProjectWizardDialog open={isModalOpen} onOpenChange={setIsModalOpen} />
     </PageContainer>
   );
 }

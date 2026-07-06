@@ -72,7 +72,7 @@ export function ProjectInfoStep() {
 
   const onSubmit = (data: InfoInput) => {
     updateState(data);
-    setCurrentStep(2);
+    setCurrentStep(3);
   };
 
   return (

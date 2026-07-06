@@ -118,6 +118,8 @@ export const deployment = pgTable("deployment", {
     .references(() => user.id, { onDelete: "cascade" }),
   commitSha: text("commitSha"),
   commitMessage: text("commitMessage"),
+  commitAuthorName: text("commitAuthorName"),
+  committedAt: timestamp("committedAt"),
   branch: text("branch").notNull(),
   status: text("status").notNull().default("queued"), // queued, initializing, cloning, installing, building, uploading, deploying, success, failed, cancelled
   triggerType: text("triggerType").notNull().default("manual"), // manual, push

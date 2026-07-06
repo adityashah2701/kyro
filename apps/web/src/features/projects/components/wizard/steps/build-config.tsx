@@ -5,7 +5,7 @@ import { useWizard, type WizardState } from "../wizard-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, ArrowRight, Settings2 } from "lucide-react";
+import { ArrowLeft, ArrowRight } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -46,7 +46,7 @@ export function BuildConfigStep() {
 
   const onSubmit = (data: Partial<WizardState>) => {
     updateState(data);
-    setCurrentStep(4);
+    setCurrentStep(5);
   };
 
   return (
@@ -124,7 +124,7 @@ export function BuildConfigStep() {
         <Button
           type="button"
           variant="outline"
-          onClick={() => setCurrentStep(2)}
+          onClick={() => setCurrentStep(3)}
         >
           <ArrowLeft className="mr-2 h-4 w-4" /> Back
         </Button>

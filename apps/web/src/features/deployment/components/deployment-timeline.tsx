@@ -1,94 +1,109 @@
-import { DeploymentStatus } from "./deployment-status-badge";
-import { CheckCircle2, CircleDashed, Loader2, XCircle } from "lucide-react";
+import { CheckCircle2, XCircle, Clock, Loader2, Rocket } from "lucide-react";
+import { format } from "date-fns";
+import { formatDuration, computeStageDurations } from "../utils";
+import { isPendingStatus } from "../types";
 
-const STAGES: DeploymentStatus[] = [
-  "queued",
-  "initializing",
-  "cloning",
-  "installing",
-  "building",
-  "uploading",
-  "deploying",
-  "success",
-];
-
-const STAGE_LABELS: Record<string, string> = {
-  queued: "Queued",
-  initializing: "Initializing Environment",
-  cloning: "Cloning Repository",
-  installing: "Installing Dependencies",
-  building: "Building Application",
-  uploading: "Uploading Artifacts",
-  deploying: "Activating Deployment",
-  success: "Completed",
+type TimelineInput = {
+  status: string;
+  queuedAt: Date | null;
+  startedAt: Date | null;
+  completedAt: Date | null;
+  buildDuration: number | null;
 };
 
+/**
+ * An honest event timeline built purely from the timestamps we actually store
+ * (queuedAt / startedAt / completedAt). Events without a timestamp are omitted
+ * rather than fabricated — we never guess which stage a build failed at.
+ */
 export function DeploymentTimeline({
-  currentStatus,
+  deployment,
 }: {
-  currentStatus: DeploymentStatus | string;
+  deployment: TimelineInput;
 }) {
-  const isFailed = currentStatus === "failed";
-  const isCancelled = currentStatus === "cancelled";
+  const { queueWaitMs, buildMs } = computeStageDurations(deployment);
+  const isFailed = deployment.status === "failed";
+  const isCancelled = deployment.status === "cancelled";
+  const isPending = isPendingStatus(deployment.status);
 
-  let currentIndex = STAGES.indexOf(currentStatus as DeploymentStatus);
-  if (currentIndex === -1) {
-    if (isFailed || isCancelled) {
-      // If failed or cancelled, we don't necessarily know which stage it failed at without more DB data.
-      // For now, we assume it stopped at some point. A real app might store `failedAtStage`.
-      currentIndex = 1;
-    } else {
-      currentIndex = 0;
-    }
+  const events: {
+    key: string;
+    label: string;
+    at: Date | null;
+    hint?: string | null;
+    icon: React.ReactNode;
+  }[] = [];
+
+  if (deployment.queuedAt) {
+    events.push({
+      key: "queued",
+      label: "Queued",
+      at: deployment.queuedAt,
+      hint:
+        queueWaitMs != null ? `waited ${formatDuration(queueWaitMs)}` : null,
+      icon: <Clock className="size-4 text-muted-foreground" />,
+    });
   }
 
-  return (
-    <div className="space-y-6">
-      {STAGES.map((stage, index) => {
-        const isCompleted =
-          index < currentIndex ||
-          (currentStatus === "success" && index <= currentIndex);
-        const isCurrent =
-          index === currentIndex &&
-          !isFailed &&
-          !isCancelled &&
-          currentStatus !== "success";
-        const isFailurePoint =
-          index === currentIndex && (isFailed || isCancelled);
+  if (deployment.startedAt) {
+    events.push({
+      key: "started",
+      label: "Build started",
+      at: deployment.startedAt,
+      hint: buildMs != null ? `ran ${formatDuration(buildMs)}` : null,
+      icon: <Rocket className="size-4 text-info" />,
+    });
+  }
 
-        return (
-          <div key={stage} className="flex items-start gap-4">
-            <div className="flex flex-col items-center">
-              {isCompleted ? (
-                <CheckCircle2 className="size-5 text-success" />
-              ) : isCurrent ? (
-                <Loader2 className="size-5 animate-spin text-info" />
-              ) : isFailurePoint ? (
-                <XCircle className="size-5 text-destructive" />
-              ) : (
-                <CircleDashed className="size-5 text-muted-foreground/50" />
-              )}
-              {index !== STAGES.length - 1 && (
-                <div
-                  className={`mt-2 h-6 w-px ${isCompleted ? "bg-success" : "bg-border"}`}
-                />
-              )}
-            </div>
-            <div className="pt-0.5">
-              <p
-                className={`text-sm font-medium ${isCurrent || isCompleted || isFailurePoint ? "text-foreground" : "text-muted-foreground"}`}
-              >
-                {STAGE_LABELS[stage]}
-              </p>
-              {isFailurePoint && (
-                <p className="text-xs text-destructive mt-1">
-                  {isFailed ? "Failed at this stage" : "Deployment cancelled"}
-                </p>
-              )}
-            </div>
+  if (deployment.completedAt) {
+    events.push({
+      key: "completed",
+      label: isFailed ? "Failed" : isCancelled ? "Cancelled" : "Completed",
+      at: deployment.completedAt,
+      hint:
+        deployment.buildDuration != null
+          ? `build ${formatDuration(deployment.buildDuration)}`
+          : null,
+      icon:
+        isFailed || isCancelled ? (
+          <XCircle className="size-4 text-destructive" />
+        ) : (
+          <CheckCircle2 className="size-4 text-success" />
+        ),
+    });
+  }
+
+  // While a build is still running, surface a live "in progress" marker.
+  if (isPending) {
+    events.push({
+      key: "in-progress",
+      label: "In progress…",
+      at: null,
+      icon: <Loader2 className="size-4 animate-spin text-info" />,
+    });
+  }
+
+  if (events.length === 0) return null;
+
+  return (
+    <ol className="space-y-4">
+      {events.map((event, i) => (
+        <li key={event.key} className="flex items-start gap-3">
+          <div className="flex flex-col items-center">
+            {event.icon}
+            {i !== events.length - 1 && (
+              <div className="mt-1.5 h-6 w-px bg-border" />
+            )}
           </div>
-        );
-      })}
-    </div>
+          <div className="pt-0.5">
+            <p className="text-sm font-medium">{event.label}</p>
+            <p className="text-xs text-muted-foreground">
+              {event.at ? format(new Date(event.at), "MMM d, HH:mm:ss") : "—"}
+              {event.hint ? ` · ${event.hint}` : ""}
+            </p>
+          </div>
+        </li>
+      ))}
+    </ol>
   );
 }
