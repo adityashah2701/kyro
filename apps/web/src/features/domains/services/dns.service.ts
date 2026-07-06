@@ -23,7 +23,12 @@ export class DnsCheckerService {
       // 1. Check CNAME (for subdomains)
       try {
         const cnameRecords = await dns.resolveCname(hostname);
-        if (cnameRecords.some((record) => record === "cname.kyro.dev")) {
+        if (
+          cnameRecords.some(
+            (record) =>
+              record === "kyro.adityashah27.dev" || record === "cname.kyro.dev"
+          )
+        ) {
           return { verified: true };
         }
       } catch {
