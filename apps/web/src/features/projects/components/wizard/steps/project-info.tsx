@@ -136,7 +136,7 @@ export function ProjectInfoStep() {
               if (val === "public" || val === "private")
                 setValue("visibility", val);
             }}
-            defaultValue={watch("visibility")}
+            value={watch("visibility")}
           >
             <SelectTrigger>
               <SelectValue placeholder="Select visibility" />

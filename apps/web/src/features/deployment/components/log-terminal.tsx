@@ -1,8 +1,7 @@
 "use client";
-"use no memo";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useVirtualizer } from "@tanstack/react-virtual";
+import { useFixedVirtualizer } from "../hooks/use-fixed-virtualizer";
 import {
   Terminal,
   TerminalHeader,
@@ -64,10 +63,12 @@ export function LogTerminal({
     return parsed.filter((l) => l.message.toLowerCase().includes(q));
   }, [parsed, search]);
 
-  const rowVirtualizer = useVirtualizer({
+  const getScrollElement = useCallback(() => scrollRef.current, []);
+
+  const rowVirtualizer = useFixedVirtualizer({
     count: filtered.length,
-    getScrollElement: () => scrollRef.current,
-    estimateSize: () => ROW_HEIGHT,
+    getScrollElement,
+    itemHeight: ROW_HEIGHT,
     overscan: 24,
   });
 
@@ -223,9 +224,9 @@ export function LogTerminal({
         ) : (
           <div
             className="relative w-full px-4 py-2"
-            style={{ height: rowVirtualizer.getTotalSize() }}
+            style={{ height: rowVirtualizer.totalSize }}
           >
-            {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+            {rowVirtualizer.virtualItems.map((virtualRow) => {
               const line = filtered[virtualRow.index];
               return (
                 <LogRow
