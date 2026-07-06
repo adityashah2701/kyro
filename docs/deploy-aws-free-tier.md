@@ -88,10 +88,10 @@ _(Paste your environment variables inside, making sure `BASE_DOMAIN=kyro.adityas
 We use Docker for the background services (Redis, MinIO, PostgreSQL).
 
 ```bash
-docker compose up -d
+docker compose -f docker-compose.yml -f docker-compose.freetier.yml up -d
 
 # Push the database schema
-npx drizzle-kit push
+npx dotenv-cli -e ../../.env -- npx drizzle-kit push
 ```
 
 ---
