@@ -148,8 +148,6 @@ Replace the entire file with this configuration:
     # Enable On-Demand TLS
     on_demand_tls {
         ask http://127.0.0.1:3000/api/caddy/check-domain
-        interval 2m
-        burst 5
     }
 }
 
