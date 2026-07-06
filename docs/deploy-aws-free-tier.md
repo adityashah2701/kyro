@@ -81,7 +81,19 @@ Create your `.env` file in the root directory:
 nano .env
 ```
 
-_(Paste your environment variables inside, making sure `BASE_DOMAIN=kyro.adityashah27.dev` and `NEXT_PUBLIC_API_URL=https://kyro.adityashah27.dev` are set correctly)_
+_(Paste your environment variables inside. Make sure you set the following critical variables for production):_
+
+- `BASE_DOMAIN=kyro.adityashah27.dev`
+- `NEXT_PUBLIC_API_URL=https://kyro.adityashah27.dev`
+- `RUNNER_DIRECTORY=/home/ubuntu/kyro-runners` _(Crucial: Prevents proxy deployments from extracting artifacts into the EC2 RAM disk `/tmp` which causes "Disk quota exceeded" errors)._
+
+### Create Required Directories
+
+Ensure the runner directory exists on the physical disk:
+
+```bash
+mkdir -p /home/ubuntu/kyro-runners
+```
 
 ### Start Database Services
 
@@ -169,6 +181,16 @@ Restart Caddy to apply changes:
 
 ```bash
 sudo systemctl restart caddy
+```
+
+---
+
+## 7. Prevent Disk Space Issues (Logrotate)
+
+PM2 logs can grow very large and quickly fill up the EC2 disk. To prevent this, install the provided logrotate script:
+
+```bash
+sudo bash scripts/free-tier/install-logrotate.sh
 ```
 
 You are completely done. All deployments on Kyro will now have automatic HTTPS previews and custom domains!
