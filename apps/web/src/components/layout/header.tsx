@@ -113,7 +113,7 @@ export function Header() {
           >
             <Avatar className="size-8">
               <AvatarImage
-                src={session?.user?.image || ""}
+                src={session?.user?.image || undefined}
                 alt={session?.user?.name || "User"}
               />
               <AvatarFallback>
