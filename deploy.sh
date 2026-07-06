@@ -149,7 +149,7 @@ success "MinIO is healthy."
 
 step "Database Migration"
 info "Pushing Drizzle schema..."
-cd packages/database
+cd apps/web
 npx dotenv-cli -e ../../.env -- npx drizzle-kit push > /dev/null
 cd ../..
 success "Database is up to date."
