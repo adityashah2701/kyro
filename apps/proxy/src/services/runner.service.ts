@@ -33,6 +33,7 @@ interface RunningInstance {
 
 export class RunnerService {
   private static instances = new Map<string, RunningInstance>();
+  private static pendingStarts = new Map<string, Promise<number>>();
   private static reaperStarted = false;
 
   private static async getFreePort(): Promise<number> {
@@ -200,6 +201,32 @@ export class RunnerService {
       return existing.port;
     }
 
+    const pending = this.pendingStarts.get(deploymentId);
+    if (pending) {
+      return pending;
+    }
+
+    const startPromise = this._getInstance(
+      deploymentId,
+      artifactLocation,
+      startCommand,
+      nodeVersion,
+    );
+    this.pendingStarts.set(deploymentId, startPromise);
+
+    try {
+      return await startPromise;
+    } finally {
+      this.pendingStarts.delete(deploymentId);
+    }
+  }
+
+  private static async _getInstance(
+    deploymentId: string,
+    artifactLocation: string,
+    startCommand: string,
+    nodeVersion = "20",
+  ): Promise<number> {
     // Bound concurrent warm servers so they can't exhaust host RAM.
     await this.evictIfNeeded();
 
