@@ -25,9 +25,6 @@ sudo systemctl enable docker
 sudo systemctl start docker
 sudo usermod -aG docker $USER
 # NOTE: You need to log out and log back in for the docker group to apply!
-
-# Install Nginx & Certbot
-sudo apt install -y nginx certbot python3-certbot-nginx
 ```
 
 ---

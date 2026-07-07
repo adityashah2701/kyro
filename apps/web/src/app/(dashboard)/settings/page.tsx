@@ -9,6 +9,10 @@ import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { connectGitHub } from "@/features/github/actions";
 import { redirect, notFound } from "next/navigation";
+import { DomainService } from "@/features/domains/services/domain.service";
+import { DomainsTab } from "@/features/domains/components/domains-tab";
+import { EnvService } from "@/features/environment/services/env.service";
+import { EnvTab } from "@/features/environment/components/env-tab";
 
 export default async function SettingsPage(props: {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
@@ -43,37 +47,73 @@ export default async function SettingsPage(props: {
 
     if (!projectData) notFound();
 
+    const projectDomains = await DomainService.getProjectDomains(projectId);
+    const domainData = projectDomains.map((d) => ({
+      id: d.id,
+      hostname: d.hostname,
+      isPrimary: d.isPrimary,
+      verificationStatus: d.verificationStatus,
+      sslStatus: d.sslStatus,
+    }));
+
+    const variables = await EnvService.getVariables(projectId);
+
     return (
       <PageContainer>
         <PageHeader
           title="Project Settings"
-          description={`Manage general settings for ${projectData.name}.`}
+          description={`Manage general settings, domains, and environment variables for ${projectData.name}.`}
         />
-        <div className="max-w-2xl space-y-4 animate-in fade-in-50 duration-500 mt-6">
-          <div className="rounded-xl bg-card p-6 ring-1 ring-foreground/10 shadow-sm border border-border">
-            <h2 className="text-base font-semibold tracking-tight">General</h2>
-            <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
-              <div>
-                <dt className="text-xs text-muted-foreground">Name</dt>
-                <dd className="mt-0.5 font-medium">{projectData.name}</dd>
+
+        <Tabs defaultValue="general" className="mt-2">
+          <TabsList>
+            <TabsTrigger value="general">General</TabsTrigger>
+            <TabsTrigger value="domains">Domains</TabsTrigger>
+            <TabsTrigger value="environment">Environment Variables</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="general" className="mt-6">
+            <div className="max-w-2xl space-y-4 animate-in fade-in-50 duration-500">
+              <div className="rounded-xl bg-card p-6 ring-1 ring-foreground/10 shadow-sm border border-border">
+                <h2 className="text-base font-semibold tracking-tight">
+                  General
+                </h2>
+                <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+                  <div>
+                    <dt className="text-xs text-muted-foreground">Name</dt>
+                    <dd className="mt-0.5 font-medium">{projectData.name}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs text-muted-foreground">Slug</dt>
+                    <dd className="mt-0.5 font-medium">{projectData.slug}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs text-muted-foreground">
+                      Visibility
+                    </dt>
+                    <dd className="mt-0.5 font-medium capitalize">
+                      {projectData.visibility}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs text-muted-foreground">Framework</dt>
+                    <dd className="mt-0.5 font-medium">
+                      {projectData.framework}
+                    </dd>
+                  </div>
+                </dl>
               </div>
-              <div>
-                <dt className="text-xs text-muted-foreground">Slug</dt>
-                <dd className="mt-0.5 font-medium">{projectData.slug}</dd>
-              </div>
-              <div>
-                <dt className="text-xs text-muted-foreground">Visibility</dt>
-                <dd className="mt-0.5 font-medium capitalize">
-                  {projectData.visibility}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-xs text-muted-foreground">Framework</dt>
-                <dd className="mt-0.5 font-medium">{projectData.framework}</dd>
-              </div>
-            </dl>
-          </div>
-        </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="domains" className="mt-6">
+            <DomainsTab domains={domainData} projectId={projectId} />
+          </TabsContent>
+
+          <TabsContent value="environment" className="mt-6">
+            <EnvTab variables={variables} projectId={projectId} />
+          </TabsContent>
+        </Tabs>
       </PageContainer>
     );
   }

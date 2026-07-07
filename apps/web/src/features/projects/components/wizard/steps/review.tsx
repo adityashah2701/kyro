@@ -85,7 +85,7 @@ export function ReviewStep({
         if (onOpenChange) {
           onOpenChange(false);
         }
-        router.push(`/projects/${projectId}`);
+        router.push(`/dashboard?projectId=${projectId}`);
       }, 1000);
     } catch (error: unknown) {
       toast.error(
