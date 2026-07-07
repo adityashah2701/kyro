@@ -131,6 +131,8 @@ export const deployment = pgTable("deployment", {
   createdAt: timestamp("createdAt").notNull().defaultNow(),
   updatedAt: timestamp("updatedAt").notNull().defaultNow(),
   metadata: jsonb("metadata"),
+  logs: text("logs"),
+  production: boolean("production").notNull().default(false),
   previewUrl: text("previewUrl"),
   artifactLocation: text("artifactLocation"),
   artifactSize: integer("artifactSize"),

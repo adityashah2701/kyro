@@ -12,28 +12,22 @@ import {
   DropdownMenuTrigger,
   DropdownMenuGroup,
 } from "@/components/ui/dropdown-menu";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
+import { ProjectSwitcher } from "@/components/layout/project-switcher";
+import { OPEN_COMMAND_EVENT } from "@/components/layout/command-palette";
 import { Search, Sun, Moon, LogOut, Bell, Settings } from "lucide-react";
 import { useTheme } from "next-themes";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { MobileNav } from "@/components/layout/mobile-nav";
-import { OPEN_COMMAND_EVENT } from "@/components/layout/command-palette";
 
-export function Header() {
+export function Header({
+  projects = [],
+}: {
+  projects?: { id: string; name: string; slug: string }[];
+}) {
   const { data: session } = useSession();
   const { setTheme, theme } = useTheme();
   const router = useRouter();
-  const pathname = usePathname();
-
-  const paths = pathname.split("/").filter(Boolean);
 
   const handleSignOut = async () => {
     await signOut({
@@ -50,37 +44,9 @@ export function Header() {
     <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b bg-background/80 px-4 backdrop-blur-md supports-backdrop-filter:bg-background/60 sm:px-6">
       <MobileNav />
 
-      <Breadcrumb className="hidden md:flex">
-        <BreadcrumbList>
-          <BreadcrumbItem>
-            <BreadcrumbLink href="/dashboard">Home</BreadcrumbLink>
-          </BreadcrumbItem>
-          {paths.map((path, index) => {
-            const isLast = index === paths.length - 1;
-            if (path === "dashboard") return null;
-
-            return (
-              <div key={path} className="flex items-center gap-2">
-                <BreadcrumbSeparator />
-                <BreadcrumbItem>
-                  {isLast ? (
-                    <BreadcrumbPage className="capitalize">
-                      {path}
-                    </BreadcrumbPage>
-                  ) : (
-                    <BreadcrumbLink
-                      href={`/${paths.slice(0, index + 1).join("/")}`}
-                      className="capitalize"
-                    >
-                      {path}
-                    </BreadcrumbLink>
-                  )}
-                </BreadcrumbItem>
-              </div>
-            );
-          })}
-        </BreadcrumbList>
-      </Breadcrumb>
+      <div className="flex items-center">
+        <ProjectSwitcher projects={projects} />
+      </div>
 
       <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
         {/* Command palette trigger — opens the same dialog as ⌘K */}

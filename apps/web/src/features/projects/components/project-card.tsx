@@ -105,7 +105,7 @@ export function ProjectCard({
     <motion.div variants={itemVariants}>
       <Card className="group relative flex h-full flex-col overflow-hidden ring-foreground/10 transition-all hover:ring-brand/40">
         <Link
-          href={`/projects/${id}`}
+          href={`/dashboard?projectId=${id}`}
           className="absolute inset-0 z-0"
           aria-label={`View ${name}`}
         />
@@ -117,7 +117,7 @@ export function ProjectCard({
                 <FolderOpen className="size-4" />
               </div>
               <CardTitle className="text-base pointer-events-auto hover:underline relative">
-                <Link href={`/projects/${id}`}>{name}</Link>
+                <Link href={`/dashboard?projectId=${id}`}>{name}</Link>
               </CardTitle>
               {visibility === "private" ? (
                 <Lock className="h-3 w-3 text-muted-foreground" />

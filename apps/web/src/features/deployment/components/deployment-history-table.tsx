@@ -1,31 +1,28 @@
 "use client";
 
-import Link from "next/link";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { DeploymentStatusBadge } from "./deployment-status-badge";
 import { DeploymentActions } from "./deployment-actions";
 import { formatDistanceToNow } from "date-fns";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { CopyButton } from "@/components/ui/copy-button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useEffect } from "react";
-import { ExternalLink, GitBranch, Rocket, ScrollText } from "lucide-react";
+import {
+  GitBranch,
+  Rocket,
+  ArrowUpCircle,
+  GitCommitHorizontal,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { isPendingStatus } from "../types";
-import { formatDuration, buildPreviewLink } from "../utils";
+import { formatDuration } from "../utils";
 
 type DeploymentData = {
   id: string;
   deploymentNumber: number;
   branch: string;
+  commitSha?: string | null;
+  commitMessage?: string | null;
+  commitAuthorName?: string | null;
+  production?: boolean | null;
   triggerType: string;
   status: string;
   createdAt: Date;
@@ -64,136 +61,109 @@ export function DeploymentHistoryTable({
     );
   }
 
-  const showProjectColumn = deployments.some((d) => d.project);
-
   return (
-    <div className="overflow-x-auto rounded-xl bg-card ring-1 ring-foreground/10">
-      <Table className="min-w-[720px]">
-        <TableHeader>
-          <TableRow>
-            <TableHead>Deployment</TableHead>
-            {showProjectColumn && <TableHead>Project</TableHead>}
-            <TableHead>Branch</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead>Duration</TableHead>
-            <TableHead>Preview URL</TableHead>
-            <TableHead>Created</TableHead>
-            <TableHead className="text-right">Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {deployments.map((d) => {
-            const itemProjectId = d.projectId || projectId;
-            const duration = formatDuration(d.buildDuration);
-            return (
-              <TableRow key={d.id}>
-                <TableCell className="font-semibold">
-                  <Link
-                    href={`/deployments/${d.id}`}
-                    className="inline-flex items-center gap-2 hover:text-primary"
-                  >
-                    #{d.deploymentNumber}
-                    {d.active && (
-                      <Badge className="border-0 bg-success/10 text-success">
-                        Active
-                      </Badge>
-                    )}
-                  </Link>
-                </TableCell>
-                {d.project && (
-                  <TableCell>
-                    <div className="font-medium">{d.project.name}</div>
-                  </TableCell>
-                )}
-                <TableCell>
-                  <div className="flex items-center gap-1.5 text-muted-foreground">
-                    <GitBranch className="h-3.5 w-3.5" />
-                    <span className="max-w-[120px] truncate">{d.branch}</span>
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <DeploymentStatusBadge status={d.status} />
-                </TableCell>
-                <TableCell className="text-sm text-muted-foreground">
-                  {duration ?? "-"}
-                </TableCell>
-                <TableCell className="text-sm">
-                  {d.previewUrl ? (
-                    <PreviewCell previewUrl={d.previewUrl} />
-                  ) : (
-                    <span className="text-muted-foreground">-</span>
-                  )}
-                </TableCell>
-                <TableCell className="text-sm text-muted-foreground">
-                  {formatDistanceToNow(new Date(d.createdAt), {
-                    addSuffix: true,
-                  })}
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center justify-end gap-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      title="View build logs"
-                      nativeButton={false}
-                      render={<Link href={`/deployments/${d.id}/logs`} />}
-                    >
-                      <ScrollText className="h-4 w-4" />
-                    </Button>
-                    <DeploymentActions
-                      showVisit={false}
-                      deployment={{
-                        id: d.id,
-                        status: d.status,
-                        active: d.active,
-                        previewUrl: d.previewUrl,
-                        projectId: itemProjectId,
-                      }}
-                    />
-                  </div>
-                </TableCell>
-              </TableRow>
-            );
-          })}
-        </TableBody>
-      </Table>
-    </div>
-  );
-}
+    <div className="flex flex-col border rounded-xl overflow-hidden bg-card/40">
+      {deployments.map((d, i) => {
+        console.log({ d });
+        const itemProjectId = d.projectId || projectId;
+        const isProduction = d.production;
+        const commitMessage =
+          d.commitMessage || `Manual Deployment #${d.deploymentNumber}`;
+        const isLast = i === deployments.length - 1;
 
-function PreviewCell({ previewUrl }: { previewUrl: string }) {
-  const previewLink = buildPreviewLink(previewUrl);
-  return (
-    <div className="group flex items-center gap-1.5">
-      <a
-        href={previewLink}
-        target="_blank"
-        rel="noreferrer"
-        className="max-w-[150px] truncate text-foreground transition-colors hover:text-primary sm:max-w-[200px]"
-        title={previewUrl}
-      >
-        {previewUrl.length > 28
-          ? previewUrl.substring(0, 28) + "…"
-          : previewUrl}
-      </a>
-      <div className="flex items-center opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-        <CopyButton
-          value={previewLink}
-          size="icon-xs"
-          label="Copy URL"
-          toastMessage="URL copied to clipboard"
-        />
-        <a
-          href={previewLink}
-          target="_blank"
-          rel="noreferrer"
-          title="Open link"
-          aria-label="Open preview in new tab"
-          className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-        >
-          <ExternalLink className="size-3" />
-        </a>
-      </div>
+        let statusColor = "bg-muted-foreground";
+        let statusText = "Queued";
+        if (d.status === "success") {
+          statusColor = "bg-teal-500 shadow-[0_0_8px_rgba(20,184,166,0.6)]";
+          statusText = "Ready";
+        } else if (d.status === "failed") {
+          statusColor = "bg-destructive";
+          statusText = "Error";
+        } else if (d.status === "building") {
+          statusColor = "bg-amber-500 animate-pulse";
+          statusText = "Building";
+        }
+
+        return (
+          <div
+            key={d.id}
+            onClick={() => router.push(`/deployments/${d.id}`)}
+            className={`grid grid-cols-[minmax(200px,3.5fr)_minmax(80px,1fr)_minmax(100px,1fr)_minmax(140px,1.5fr)_minmax(110px,1fr)_48px] gap-4 items-center px-5 py-3 hover:bg-muted/40 transition-colors cursor-pointer ${
+              !isLast ? "border-b border-border/50" : ""
+            }`}
+          >
+            {/* Primary Column: Commit Message */}
+            <div className="min-w-0 pr-2">
+              <span className="text-[14px] font-medium text-foreground line-clamp-1">
+                {commitMessage}
+              </span>
+            </div>
+
+            {/* Status & Duration */}
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5">
+                <div className={`w-2 h-2 rounded-full ${statusColor}`} />
+                <span className="text-[13px] font-medium text-foreground">
+                  {statusText}
+                </span>
+              </div>
+            </div>
+
+            {/* Environment Badge */}
+            <div className="flex items-center">
+              <Badge
+                variant={d.active ? "default" : "outline"}
+                className={`font-medium px-2 py-0.5 rounded-full flex items-center gap-1.5 w-max text-[11px] transition-colors ${
+                  d.active
+                    ? "bg-[#0070F3] hover:bg-[#0070F3]/90 text-white border-0 shadow-none"
+                    : "bg-transparent border-border/60 text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <ArrowUpCircle className="w-3 h-3" />
+                {isProduction ? "Production" : "Preview"}
+              </Badge>
+            </div>
+
+            {/* Git Branch & SHA */}
+            <div className="flex items-center gap-3 text-muted-foreground text-[13px] font-mono min-w-0">
+              <div className="flex items-center gap-1 min-w-0 shrink">
+                <GitCommitHorizontal className="w-3.5 h-3.5 shrink-0" />
+                <span className="truncate">
+                  {d.commitSha ? d.commitSha.substring(0, 7) : "-"}
+                </span>
+              </div>
+              <div className="flex items-center gap-1 min-w-0 shrink">
+                <GitBranch className="w-3.5 h-3.5 shrink-0" />
+                <span className="truncate">{d.branch}</span>
+              </div>
+            </div>
+
+            {/* Created At */}
+            <div className="text-right text-[13px] text-muted-foreground whitespace-nowrap">
+              {formatDistanceToNow(new Date(d.createdAt), {
+                addSuffix: true,
+              }).replace("about ", "")}
+            </div>
+
+            {/* Actions Menu */}
+            <div
+              className="flex justify-end"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <DeploymentActions
+                showVisit={false}
+                deployment={{
+                  id: d.id,
+                  status: d.status,
+                  active: d.active,
+                  previewUrl: d.previewUrl,
+                  projectId: itemProjectId,
+                }}
+              />
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }

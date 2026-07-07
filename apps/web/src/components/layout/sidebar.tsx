@@ -3,7 +3,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { PanelLeftClose, PanelLeftOpen, BookOpen } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -19,7 +19,10 @@ const STORAGE_KEY = "kyro:sidebar-collapsed";
 
 export function Sidebar() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [collapsed, setCollapsed] = React.useState(false);
+
+  const projectId = searchParams.get("projectId");
 
   // Restore persisted collapse state on mount (client-only to avoid hydration mismatch).
   React.useEffect(() => {
@@ -39,7 +42,7 @@ export function Sidebar() {
       data-collapsed={collapsed}
       className={cn(
         "hidden shrink-0 border-r bg-sidebar transition-[width] duration-200 ease-in-out md:block",
-        collapsed ? "md:w-[4.25rem]" : "md:w-64"
+        collapsed ? "md:w-17" : "md:w-64"
       )}
     >
       <div className="sticky top-0 flex h-screen flex-col">
@@ -48,12 +51,12 @@ export function Sidebar() {
           <Link
             href="/dashboard"
             className={cn(
-              "flex items-center gap-2 font-semibold",
+              "flex items-center gap-2 font-semibold shrink-0 transition-transform hover:opacity-80",
               collapsed && "w-full justify-center"
             )}
             aria-label="Kyro home"
           >
-            <span className="flex size-7 items-center justify-center rounded-md bg-brand text-sm font-bold text-brand-foreground">
+            <span className="flex size-7 items-center justify-center rounded-md bg-brand text-sm font-bold text-brand-foreground shadow-sm">
               K
             </span>
             {!collapsed && <span className="text-lg tracking-tight">Kyro</span>}
@@ -74,6 +77,7 @@ export function Sidebar() {
                   key={item.href}
                   item={item}
                   collapsed={collapsed}
+                  projectId={projectId}
                   active={
                     pathname === item.href ||
                     pathname.startsWith(`${item.href}/`)
@@ -120,14 +124,21 @@ function NavLink({
   item,
   active,
   collapsed,
+  projectId,
 }: {
   item: NavItem;
   active: boolean;
   collapsed: boolean;
+  projectId?: string | null;
 }) {
+  const href =
+    projectId && item.href !== "/docs"
+      ? `${item.href}?projectId=${projectId}`
+      : item.href;
+
   const link = (
     <Link
-      href={item.href}
+      href={href}
       aria-current={active ? "page" : undefined}
       className={cn(
         "group relative flex items-center rounded-lg text-sm transition-colors",

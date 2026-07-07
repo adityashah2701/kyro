@@ -25,6 +25,8 @@ export async function createDeployment(
   });
   const deploymentNumber = existingDeployments.length + 1;
 
+  const isProduction = repo.selectedBranch === repo.defaultBranch;
+
   // 3. Create the deployment record
   const [newDeployment] = await db
     .insert(deployment)
@@ -35,6 +37,7 @@ export async function createDeployment(
       status: "queued",
       triggerType,
       deploymentNumber,
+      production: isProduction,
     })
     .returning();
 
@@ -159,7 +162,14 @@ export async function getDeploymentWithProject(
   return { ...row.deployment, project: row.project };
 }
 
-export async function getUserDeployments(userId: string) {
+export async function getUserDeployments(
+  userId: string,
+  projectId?: string | null
+) {
+  const whereClause = projectId
+    ? and(eq(deployment.userId, userId), eq(deployment.projectId, projectId))
+    : eq(deployment.userId, userId);
+
   const deployments = await db
     .select({
       deployment,
@@ -170,7 +180,7 @@ export async function getUserDeployments(userId: string) {
     })
     .from(deployment)
     .leftJoin(project, eq(deployment.projectId, project.id))
-    .where(eq(deployment.userId, userId))
+    .where(whereClause)
     .orderBy(desc(deployment.createdAt));
 
   // Flatten the result to match the expected format

@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { Loader2, ExternalLink, RotateCw, Ban, CheckCheck } from "lucide-react";
 import { cancelDeploymentAction, retryDeploymentAction } from "../actions";
 import { isPendingStatus } from "../types";
@@ -16,6 +17,15 @@ type ActionableDeployment = {
   previewUrl: string | null;
   projectId: string;
 };
+
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { MoreHorizontal } from "lucide-react";
 
 /**
  * Cancel / retry / activate / visit controls for a single deployment.
@@ -41,8 +51,9 @@ export function DeploymentActions({
   const run = async (key: string, fn: () => Promise<unknown>, ok: string) => {
     try {
       setProcessing(key);
+      const toastId = toast.loading("Processing...");
       await fn();
-      toast.success(ok);
+      toast.success(ok, { id: toastId });
       router.refresh();
     } catch (e) {
       console.error(e);
@@ -52,96 +63,109 @@ export function DeploymentActions({
     }
   };
 
+  const hasActions =
+    canCancel ||
+    canRetry ||
+    canActivate ||
+    (showVisit && deployment.previewUrl);
+
+  if (!hasActions) return <div className="w-8 h-8" />;
+
   return (
-    <div className="flex items-center gap-2">
-      {showVisit && deployment.previewUrl && (
-        <Button
-          variant="outline"
-          size={size}
-          nativeButton={false}
-          render={
-            <a
-              href={buildPreviewLink(deployment.previewUrl)}
-              target="_blank"
-              rel="noreferrer"
-            />
-          }
-        >
-          <ExternalLink className="size-4" />
-          Visit
-        </Button>
-      )}
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        className={cn(
+          buttonVariants({ variant: "ghost", size: "icon" }),
+          "h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted/50 outline-none"
+        )}
+        disabled={processing !== null}
+      >
+        {processing !== null ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <MoreHorizontal className="h-4 w-4" />
+        )}
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="end"
+        className="w-[180px] bg-card border-border/50 shadow-xl"
+      >
+        {showVisit && deployment.previewUrl && (
+          <DropdownMenuItem
+            render={
+              <a
+                href={buildPreviewLink(deployment.previewUrl)}
+                target="_blank"
+                rel="noreferrer"
+              />
+            }
+          >
+            <ExternalLink className="size-4" />
+            <span>Visit</span>
+          </DropdownMenuItem>
+        )}
 
-      {canActivate && (
-        <Button
-          variant="outline"
-          size={size}
-          disabled={processing !== null}
-          onClick={() =>
-            run(
-              "activate",
-              async () => {
-                const res = await fetch(
-                  `/api/deployments/${deployment.id}/activate`,
-                  { method: "POST" }
-                );
-                if (!res.ok) throw new Error("Failed to activate");
-              },
-              "Deployment activated."
-            )
-          }
-        >
-          {processing === "activate" ? (
-            <Loader2 className="size-4 animate-spin" />
-          ) : (
+        {showVisit &&
+          deployment.previewUrl &&
+          (canActivate || canRetry || canCancel) && <DropdownMenuSeparator />}
+
+        {canActivate && (
+          <DropdownMenuItem
+            className="flex items-center gap-2 cursor-pointer"
+            onClick={() =>
+              run(
+                "activate",
+                async () => {
+                  const res = await fetch(
+                    `/api/deployments/${deployment.id}/activate`,
+                    { method: "POST" }
+                  );
+                  if (!res.ok) throw new Error("Failed to activate");
+                },
+                "Deployment activated."
+              )
+            }
+          >
             <CheckCheck className="size-4" />
-          )}
-          Activate
-        </Button>
-      )}
+            <span>Instant Rollback</span>
+          </DropdownMenuItem>
+        )}
 
-      {canRetry && (
-        <Button
-          size={size}
-          disabled={processing !== null}
-          onClick={() =>
-            run(
-              "retry",
-              () => retryDeploymentAction(deployment.id, deployment.projectId),
-              "Deployment queued for retry."
-            )
-          }
-        >
-          {processing === "retry" ? (
-            <Loader2 className="size-4 animate-spin" />
-          ) : (
+        {canRetry && (
+          <DropdownMenuItem
+            className="flex items-center gap-2 cursor-pointer"
+            onClick={() =>
+              run(
+                "retry",
+                () =>
+                  retryDeploymentAction(deployment.id, deployment.projectId),
+                "Deployment queued for retry."
+              )
+            }
+          >
             <RotateCw className="size-4" />
-          )}
-          Retry
-        </Button>
-      )}
+            <span>Redeploy</span>
+          </DropdownMenuItem>
+        )}
 
-      {canCancel && (
-        <Button
-          variant="destructive"
-          size={size}
-          disabled={processing !== null}
-          onClick={() =>
-            run(
-              "cancel",
-              () => cancelDeploymentAction(deployment.id, deployment.projectId),
-              "Deployment cancelled."
-            )
-          }
-        >
-          {processing === "cancel" ? (
-            <Loader2 className="size-4 animate-spin" />
-          ) : (
+        {canCancel && (
+          <DropdownMenuItem
+            className="flex items-center gap-2 cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10"
+            variant="destructive"
+            onClick={() =>
+              run(
+                "cancel",
+                () =>
+                  cancelDeploymentAction(deployment.id, deployment.projectId),
+                "Deployment cancelled."
+              )
+            }
+          >
             <Ban className="size-4" />
-          )}
-          Cancel
-        </Button>
-      )}
-    </div>
+            <span>Cancel</span>
+          </DropdownMenuItem>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

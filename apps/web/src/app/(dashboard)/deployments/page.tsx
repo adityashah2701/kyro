@@ -12,7 +12,12 @@ import { DeploymentHistoryTable } from "@/features/deployment/components/deploym
 
 export const metadata = { title: "Deployments | Kyro" };
 
-export default async function DeploymentsPage() {
+export default async function DeploymentsPage(props: {
+  searchParams: Promise<{ projectId?: string }>;
+}) {
+  const searchParams = await props.searchParams;
+  const projectId = searchParams.projectId;
+
   const session = await auth.api.getSession({
     headers: await headers(),
   });
@@ -21,13 +26,17 @@ export default async function DeploymentsPage() {
     return null;
   }
 
-  const deployments = await getUserDeployments(session.user.id);
+  const deployments = await getUserDeployments(session.user.id, projectId);
 
   // Cast deployments to match expected types
   const deploymentDataList = deployments.map((d) => ({
     id: d.id,
     deploymentNumber: d.deploymentNumber,
     branch: d.branch,
+    commitSha: d.commitSha,
+    commitMessage: d.commitMessage,
+    commitAuthorName: d.commitAuthorName,
+    production: d.production,
     triggerType: d.triggerType,
     status: d.status,
     createdAt: d.createdAt,

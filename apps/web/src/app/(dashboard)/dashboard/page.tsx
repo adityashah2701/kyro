@@ -8,6 +8,9 @@ import {
   Radio,
   ArrowRight,
   GitBranch,
+  Globe,
+  TerminalSquare,
+  Activity,
 } from "lucide-react";
 
 import { db } from "@kyro/database";
@@ -15,7 +18,7 @@ import { project, deployment } from "@kyro/database/schema";
 import { eq, and, ne, desc } from "@kyro/database";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
-import { redirect } from "next/navigation";
+import { redirect, notFound } from "next/navigation";
 
 import { PageContainer } from "@/components/layout/page-container";
 import { PageHeader } from "@/components/layout/page-header";
@@ -24,14 +27,103 @@ import { Button } from "@/components/ui/button";
 import { StatCard } from "@/components/ui/stat-card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { DeploymentStatusBadge } from "@/features/deployment/components/deployment-status-badge";
+import { getProjectDeployments } from "@/features/deployment/services/deployment.service";
+import { DeploymentHistoryTable } from "@/features/deployment/components/deployment-history-table";
+import { DomainService } from "@/features/domains/services/domain.service";
 
 export const metadata = { title: "Dashboard | Kyro" };
 
-export default async function DashboardPage() {
+export default async function DashboardPage(props: {
+  searchParams: Promise<{ projectId?: string }>;
+}) {
+  const searchParams = await props.searchParams;
+  const projectId = searchParams.projectId;
+
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session?.user) redirect("/login");
 
   const userId = session.user.id;
+
+  if (projectId) {
+    const projectData = await db.query.project.findFirst({
+      where: and(eq(project.id, projectId), eq(project.userId, userId)),
+    });
+
+    if (!projectData) {
+      notFound();
+    }
+
+    const deployments = await getProjectDeployments(projectId);
+    const deploymentDataList = deployments.map((d) => ({
+      id: d.id,
+      deploymentNumber: d.deploymentNumber,
+      branch: d.branch,
+      commitSha: d.commitSha,
+      commitMessage: d.commitMessage,
+      commitAuthorName: d.commitAuthorName,
+      production: d.production,
+      triggerType: d.triggerType,
+      status: d.status,
+      createdAt: d.createdAt,
+      buildDuration: d.buildDuration,
+      previewUrl: d.previewUrl,
+      active: d.active,
+      metadata: d.metadata as Record<string, unknown> | undefined,
+    }));
+
+    const projectDomains = await DomainService.getProjectDomains(projectId);
+    const verifiedPrimaryDomain = projectDomains.find(
+      (d) => d.isPrimary && d.verificationStatus === "verified"
+    );
+
+    const baseDomain = process.env.BASE_DOMAIN || "localhost";
+    const mainHost = verifiedPrimaryDomain
+      ? verifiedPrimaryDomain.hostname
+      : `${projectData.slug}.${baseDomain}`;
+
+    return (
+      <PageContainer className="space-y-8">
+        <PageHeader title={projectData.name} description="Project Overview" />
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <StatCard
+            label="Framework"
+            value={projectData.framework}
+            icon={TerminalSquare}
+            accent
+          />
+          <StatCard
+            label="Deployments"
+            value={deployments.length}
+            icon={Rocket}
+          />
+          <StatCard
+            label="Domain"
+            value={
+              <span className="text-lg" title={mainHost}>
+                {mainHost}
+              </span>
+            }
+            icon={Globe}
+          />
+          <StatCard
+            label="Status"
+            value={<span className="capitalize">{projectData.status}</span>}
+            icon={Activity}
+          />
+        </div>
+
+        <div>
+          <h2 className="mb-4 text-base font-semibold tracking-tight">
+            Recent Deployments
+          </h2>
+          <DeploymentHistoryTable
+            deployments={deploymentDataList.slice(0, 5)}
+            projectId={projectId}
+          />
+        </div>
+      </PageContainer>
+    );
+  }
 
   // Real data — read-only queries over existing tables, no schema/API changes.
   const [projects, deployments] = await Promise.all([
@@ -120,7 +212,7 @@ export default async function DashboardPage() {
               {recentProjects.map((p) => (
                 <Link
                   key={p.id}
-                  href={`/projects/${p.id}`}
+                  href={`/dashboard?projectId=${p.id}`}
                   className="flex items-center gap-3 bg-card px-4 py-3 transition-colors hover:bg-muted/50"
                 >
                   <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-brand/10 text-brand">
@@ -180,7 +272,7 @@ export default async function DashboardPage() {
                 return proj ? (
                   <Link
                     key={d.id}
-                    href={`/projects/${d.projectId}`}
+                    href={`/deployments/${d.id}`}
                     className="flex items-center gap-3 bg-card px-4 py-3 transition-colors hover:bg-muted/50"
                   >
                     {inner}
