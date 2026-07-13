@@ -254,7 +254,7 @@ export function EnvTab({ variables, projectId }: Props) {
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
-    <div className="space-y-5 max-w-4xl">
+    <div className="flex flex-col gap-8">
       {/* ── Import Dialog ──────────────────────────────────────────────── */}
       <Dialog
         open={importOpen}
@@ -319,442 +319,450 @@ export function EnvTab({ variables, projectId }: Props) {
         </DialogContent>
       </Dialog>
 
-      {/* ── Page Header ────────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <h3 className="text-lg font-semibold">Environment Variables</h3>
-          <p className="text-sm text-muted-foreground">
-            Encrypted with AES-256-GCM and injected at build time.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setImportOpen(true)}
-          >
-            <Upload className="h-4 w-4" /> Import .env
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() =>
-              download(".env.example", buildEnvExampleContent(variables))
-            }
-          >
-            <Download className="h-4 w-4" /> Export
-          </Button>
-          <Button
-            size="sm"
-            onClick={() => {
-              setShowAddForm(true);
-              setTimeout(() => keyInputRef.current?.focus(), 50);
-            }}
-          >
-            <Plus className="h-4 w-4" /> Add Variable
-          </Button>
-        </div>
-      </div>
-
-      {/* ── Add Variable Form ───────────────────────────────────────────── */}
-      {showAddForm && (
-        <form
-          onSubmit={handleAdd}
-          className="border rounded-lg p-4 bg-card space-y-3 animate-in fade-in-0 slide-in-from-top-2 duration-150"
-        >
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-medium">New Variable</p>
+      <div className="flex flex-col rounded-xl border border-border/40 bg-card/40 shadow-sm overflow-hidden transition-all hover:border-border/60 hover:bg-card/60">
+        <div className="flex flex-col md:flex-row justify-between gap-6 p-6 border-b border-border/40 bg-muted/10">
+          <div className="flex flex-col gap-1.5 md:max-w-[50%]">
+            <h3 className="text-base font-semibold tracking-tight text-foreground">
+              Environment Variables
+            </h3>
+            <p className="text-[14px] text-muted-foreground leading-relaxed">
+              Encrypted with AES-256-GCM and injected at build time. Manage your
+              project&apos;s configuration here.
+            </p>
+          </div>
+          <div className="w-full md:w-auto flex flex-wrap items-center justify-start md:justify-end gap-2">
             <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              onClick={() => setShowAddForm(false)}
+              variant="outline"
+              size="sm"
+              onClick={() => setImportOpen(true)}
             >
-              <X className="h-4 w-4" />
+              <Upload className="h-4 w-4 mr-2" /> Import .env
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                download(".env.example", buildEnvExampleContent(variables))
+              }
+            >
+              <Download className="h-4 w-4 mr-2" /> Export
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => {
+                setShowAddForm(true);
+                setTimeout(() => keyInputRef.current?.focus(), 50);
+              }}
+            >
+              <Plus className="h-4 w-4 mr-2" /> Add Variable
             </Button>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <label className="text-xs text-muted-foreground font-medium">
-                Key
-              </label>
+        </div>
+
+        <div className="p-6 flex flex-col gap-5">
+          {/* ── Add Variable Form ───────────────────────────────────────────── */}
+          {showAddForm && (
+            <form
+              onSubmit={handleAdd}
+              className="border rounded-lg p-4 bg-card space-y-3 animate-in fade-in-0 slide-in-from-top-2 duration-150"
+            >
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium">New Variable</p>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={() => setShowAddForm(false)}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground font-medium">
+                    Key
+                  </label>
+                  <Input
+                    ref={keyInputRef}
+                    placeholder="DATABASE_URL"
+                    value={addKey}
+                    onChange={(e) => setAddKey(e.target.value.toUpperCase())}
+                    onPaste={handleKeyPaste}
+                    className="font-mono text-sm"
+                    required
+                  />
+                  <p className="text-[0.68rem] text-muted-foreground">
+                    Tip: paste a .env file here to bulk import
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground font-medium">
+                    Value
+                  </label>
+                  <Input
+                    type={addSecret ? "password" : "text"}
+                    placeholder="your-value"
+                    value={addValue}
+                    onChange={(e) => setAddValue(e.target.value)}
+                    className="font-mono text-sm"
+                    required
+                  />
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground font-medium">
+                    Environment
+                  </label>
+                  <div className="relative">
+                    <select
+                      value={addEnv}
+                      onChange={(e) => setAddEnv(e.target.value as Environment)}
+                      className="appearance-none border rounded-md px-3 py-1.5 text-sm bg-background pr-8 focus:outline-none focus:ring-1 focus:ring-ring"
+                    >
+                      {ENVIRONMENT_VALUES.map((env) => (
+                        <option key={env} value={env}>
+                          {ENV_LABELS[env]}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="absolute right-2 top-2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground font-medium">
+                    Type
+                  </label>
+                  <div className="flex items-center gap-1 border rounded-md p-1">
+                    <button
+                      type="button"
+                      onClick={() => setAddSecret(false)}
+                      className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors ${!addSecret ? "bg-muted font-medium" : "text-muted-foreground"}`}
+                    >
+                      <Unlock className="h-3 w-3" /> Plain
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAddSecret(true)}
+                      className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors ${addSecret ? "bg-muted font-medium" : "text-muted-foreground"}`}
+                    >
+                      <Lock className="h-3 w-3" /> Secret
+                    </button>
+                  </div>
+                </div>
+                <Button
+                  type="submit"
+                  size="sm"
+                  className="mt-auto"
+                  disabled={addingKey}
+                >
+                  {addingKey && (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
+                  )}
+                  Add
+                </Button>
+              </div>
+            </form>
+          )}
+
+          {/* ── Filter Bar ─────────────────────────────────────────────────── */}
+          <div className="flex flex-col sm:flex-row gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
-                ref={keyInputRef}
-                placeholder="DATABASE_URL"
-                value={addKey}
-                onChange={(e) => setAddKey(e.target.value.toUpperCase())}
-                onPaste={handleKeyPaste}
-                className="font-mono text-sm"
-                required
+                placeholder="Search variables..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-9 text-sm"
               />
-              <p className="text-[0.68rem] text-muted-foreground">
-                Tip: paste a .env file here to bulk import
+            </div>
+            <div className="flex gap-1 flex-wrap">
+              {(["all", ...ENVIRONMENT_VALUES] as const).map((env) => (
+                <button
+                  key={env}
+                  onClick={() => setFilterEnv(env as Environment | "all")}
+                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors border ${
+                    filterEnv === env
+                      ? env === "all"
+                        ? "bg-muted border-border"
+                        : ENV_COLORS[env as Environment]
+                      : "border-transparent text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {env === "all" ? "All" : ENV_LABELS[env as Environment]}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* ── Bulk Delete Bar ─────────────────────────────────────────────── */}
+          {selectedIds.size > 0 && (
+            <div className="flex items-center gap-3 px-4 py-2 bg-destructive/10 border border-destructive/20 rounded-lg">
+              <span className="text-sm font-medium">
+                {selectedIds.size} selected
+              </span>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={handleBulkDelete}
+                disabled={bulkDeleting}
+              >
+                {bulkDeleting ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Trash2 className="h-3.5 w-3.5" />
+                )}
+                Delete
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedIds(new Set())}
+              >
+                Cancel
+              </Button>
+            </div>
+          )}
+
+          {/* ── Variables Table ─────────────────────────────────────────────── */}
+          {filtered.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 border rounded-lg bg-card text-center">
+              <Shield className="h-10 w-10 text-muted-foreground/40 mb-3" />
+              <p className="font-medium text-muted-foreground">
+                {variables.length === 0
+                  ? "No environment variables yet"
+                  : "No variables match your search"}
+              </p>
+              <p className="text-sm text-muted-foreground mt-1">
+                {variables.length === 0
+                  ? "Add your first variable or import a .env file."
+                  : "Try a different search or filter."}
               </p>
             </div>
-            <div className="space-y-1">
-              <label className="text-xs text-muted-foreground font-medium">
-                Value
-              </label>
-              <Input
-                type={addSecret ? "password" : "text"}
-                placeholder="your-value"
-                value={addValue}
-                onChange={(e) => setAddValue(e.target.value)}
-                className="font-mono text-sm"
-                required
-              />
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="space-y-1">
-              <label className="text-xs text-muted-foreground font-medium">
-                Environment
-              </label>
-              <div className="relative">
-                <select
-                  value={addEnv}
-                  onChange={(e) => setAddEnv(e.target.value as Environment)}
-                  className="appearance-none border rounded-md px-3 py-1.5 text-sm bg-background pr-8 focus:outline-none focus:ring-1 focus:ring-ring"
-                >
-                  {ENVIRONMENT_VALUES.map((env) => (
-                    <option key={env} value={env}>
-                      {ENV_LABELS[env]}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="absolute right-2 top-2 h-4 w-4 text-muted-foreground pointer-events-none" />
-              </div>
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs text-muted-foreground font-medium">
-                Type
-              </label>
-              <div className="flex items-center gap-1 border rounded-md p-1">
-                <button
-                  type="button"
-                  onClick={() => setAddSecret(false)}
-                  className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors ${!addSecret ? "bg-muted font-medium" : "text-muted-foreground"}`}
-                >
-                  <Unlock className="h-3 w-3" /> Plain
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setAddSecret(true)}
-                  className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors ${addSecret ? "bg-muted font-medium" : "text-muted-foreground"}`}
-                >
-                  <Lock className="h-3 w-3" /> Secret
-                </button>
-              </div>
-            </div>
-            <Button
-              type="submit"
-              size="sm"
-              className="mt-auto"
-              disabled={addingKey}
-            >
-              {addingKey && (
-                <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
-              )}
-              Add
-            </Button>
-          </div>
-        </form>
-      )}
-
-      {/* ── Filter Bar ─────────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row gap-2">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search variables..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9 text-sm"
-          />
-        </div>
-        <div className="flex gap-1 flex-wrap">
-          {(["all", ...ENVIRONMENT_VALUES] as const).map((env) => (
-            <button
-              key={env}
-              onClick={() => setFilterEnv(env as Environment | "all")}
-              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors border ${
-                filterEnv === env
-                  ? env === "all"
-                    ? "bg-muted border-border"
-                    : ENV_COLORS[env as Environment]
-                  : "border-transparent text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {env === "all" ? "All" : ENV_LABELS[env as Environment]}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* ── Bulk Delete Bar ─────────────────────────────────────────────── */}
-      {selectedIds.size > 0 && (
-        <div className="flex items-center gap-3 px-4 py-2 bg-destructive/10 border border-destructive/20 rounded-lg">
-          <span className="text-sm font-medium">
-            {selectedIds.size} selected
-          </span>
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={handleBulkDelete}
-            disabled={bulkDeleting}
-          >
-            {bulkDeleting ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Trash2 className="h-3.5 w-3.5" />
-            )}
-            Delete
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setSelectedIds(new Set())}
-          >
-            Cancel
-          </Button>
-        </div>
-      )}
-
-      {/* ── Variables Table ─────────────────────────────────────────────── */}
-      {filtered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 border rounded-lg bg-card text-center">
-          <Shield className="h-10 w-10 text-muted-foreground/40 mb-3" />
-          <p className="font-medium text-muted-foreground">
-            {variables.length === 0
-              ? "No environment variables yet"
-              : "No variables match your search"}
-          </p>
-          <p className="text-sm text-muted-foreground mt-1">
-            {variables.length === 0
-              ? "Add your first variable or import a .env file."
-              : "Try a different search or filter."}
-          </p>
-        </div>
-      ) : (
-        <div className="border rounded-lg overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b bg-muted/40">
-                <th className="w-10 px-3 py-2.5">
-                  <input
-                    type="checkbox"
-                    className="rounded"
-                    checked={
-                      selectedIds.size === filtered.length &&
-                      filtered.length > 0
-                    }
-                    onChange={(e) =>
-                      setSelectedIds(
-                        e.target.checked
-                          ? new Set(filtered.map((v) => v.id))
-                          : new Set()
-                      )
-                    }
-                  />
-                </th>
-                <th className="text-left px-4 py-2.5 font-medium text-muted-foreground">
-                  Key
-                </th>
-                <th className="text-left px-4 py-2.5 font-medium text-muted-foreground">
-                  Value
-                </th>
-                <th className="text-left px-4 py-2.5 font-medium text-muted-foreground">
-                  Environment
-                </th>
-                <th className="text-right px-4 py-2.5 font-medium text-muted-foreground">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((v, i) => {
-                const isRevealed = !!revealed[v.id];
-                const displayVal = isRevealed
-                  ? revealed[v.id]
-                  : v.isSecret
-                    ? MASK
-                    : v.displayValue;
-                const isEditing = editingId === v.id;
-
-                return (
-                  <tr
-                    key={v.id}
-                    className={`border-b last:border-b-0 transition-colors ${i % 2 !== 0 ? "bg-muted/20" : ""} hover:bg-muted/30 ${selectedIds.has(v.id) ? "bg-primary/5" : ""}`}
-                  >
-                    <td className="px-3 py-3">
+          ) : (
+            <div className="border rounded-lg overflow-hidden">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b bg-muted/40">
+                    <th className="w-10 px-3 py-2.5">
                       <input
                         type="checkbox"
                         className="rounded"
-                        checked={selectedIds.has(v.id)}
-                        onChange={() =>
-                          setSelectedIds((p) => {
-                            const n = new Set(p);
-                            if (n.has(v.id)) {
-                              n.delete(v.id);
-                            } else {
-                              n.add(v.id);
-                            }
-                            return n;
-                          })
+                        checked={
+                          selectedIds.size === filtered.length &&
+                          filtered.length > 0
+                        }
+                        onChange={(e) =>
+                          setSelectedIds(
+                            e.target.checked
+                              ? new Set(filtered.map((v) => v.id))
+                              : new Set()
+                          )
                         }
                       />
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        {v.isSecret && (
-                          <Lock className="size-3 shrink-0 text-warning" />
-                        )}
-                        <span className="font-mono font-medium text-sm">
-                          {v.key}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 max-w-xs">
-                      {isEditing ? (
-                        <div className="flex items-center gap-2">
-                          <Input
-                            value={editValue}
-                            onChange={(e) => setEditValue(e.target.value)}
-                            type={editSecret ? "password" : "text"}
-                            className="font-mono text-xs h-7"
-                            autoFocus
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setEditSecret((p) => !p)}
-                            className="text-muted-foreground hover:text-foreground"
-                          >
-                            {editSecret ? (
-                              <EyeOff className="h-3.5 w-3.5" />
-                            ) : (
-                              <Eye className="h-3.5 w-3.5" />
-                            )}
-                          </button>
-                        </div>
-                      ) : (
-                        <span
-                          className={`font-mono text-xs truncate block max-w-[200px] ${!isRevealed && v.isSecret ? "tracking-widest text-muted-foreground" : ""}`}
-                        >
-                          {displayVal}
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`text-xs px-2 py-0.5 rounded border font-medium ${ENV_COLORS[v.environment]}`}
+                    </th>
+                    <th className="text-left px-4 py-2.5 font-medium text-muted-foreground">
+                      Key
+                    </th>
+                    <th className="text-left px-4 py-2.5 font-medium text-muted-foreground">
+                      Value
+                    </th>
+                    <th className="text-left px-4 py-2.5 font-medium text-muted-foreground">
+                      Environment
+                    </th>
+                    <th className="text-right px-4 py-2.5 font-medium text-muted-foreground">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((v, i) => {
+                    const isRevealed = !!revealed[v.id];
+                    const displayVal = isRevealed
+                      ? revealed[v.id]
+                      : v.isSecret
+                        ? MASK
+                        : v.displayValue;
+                    const isEditing = editingId === v.id;
+
+                    return (
+                      <tr
+                        key={v.id}
+                        className={`border-b last:border-b-0 transition-colors ${i % 2 !== 0 ? "bg-muted/20" : ""} hover:bg-muted/30 ${selectedIds.has(v.id) ? "bg-primary/5" : ""}`}
                       >
-                        {ENV_LABELS[v.environment]}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center justify-end gap-1">
-                        {isEditing ? (
-                          <>
-                            <Button
-                              size="sm"
-                              className="h-7 text-xs"
-                              onClick={() => handleSaveEdit(v)}
-                              disabled={savingId === v.id}
-                            >
-                              {savingId === v.id ? (
-                                <Loader2 className="h-3 w-3 animate-spin" />
-                              ) : (
-                                "Save"
-                              )}
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 text-xs"
-                              onClick={() => setEditingId(null)}
-                            >
-                              Cancel
-                            </Button>
-                          </>
-                        ) : (
-                          <>
+                        <td className="px-3 py-3">
+                          <input
+                            type="checkbox"
+                            className="rounded"
+                            checked={selectedIds.has(v.id)}
+                            onChange={() =>
+                              setSelectedIds((p) => {
+                                const n = new Set(p);
+                                if (n.has(v.id)) {
+                                  n.delete(v.id);
+                                } else {
+                                  n.add(v.id);
+                                }
+                                return n;
+                              })
+                            }
+                          />
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
                             {v.isSecret && (
-                              <Button
-                                variant="ghost"
-                                size="icon-sm"
-                                title={isRevealed ? "Hide" : "Reveal"}
-                                disabled={revealingId === v.id}
-                                onClick={() => handleReveal(v.id)}
+                              <Lock className="size-3 shrink-0 text-warning" />
+                            )}
+                            <span className="font-mono font-medium text-sm">
+                              {v.key}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 max-w-xs">
+                          {isEditing ? (
+                            <div className="flex items-center gap-2">
+                              <Input
+                                value={editValue}
+                                onChange={(e) => setEditValue(e.target.value)}
+                                type={editSecret ? "password" : "text"}
+                                className="font-mono text-xs h-7"
+                                autoFocus
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setEditSecret((p) => !p)}
+                                className="text-muted-foreground hover:text-foreground"
                               >
-                                {revealingId === v.id ? (
-                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                ) : isRevealed ? (
+                                {editSecret ? (
                                   <EyeOff className="h-3.5 w-3.5" />
                                 ) : (
                                   <Eye className="h-3.5 w-3.5" />
                                 )}
-                              </Button>
+                              </button>
+                            </div>
+                          ) : (
+                            <span
+                              className={`font-mono text-xs truncate block max-w-[200px] ${!isRevealed && v.isSecret ? "tracking-widest text-muted-foreground" : ""}`}
+                            >
+                              {displayVal}
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          <span
+                            className={`text-xs px-2 py-0.5 rounded border font-medium ${ENV_COLORS[v.environment]}`}
+                          >
+                            {ENV_LABELS[v.environment]}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center justify-end gap-1">
+                            {isEditing ? (
+                              <>
+                                <Button
+                                  size="sm"
+                                  className="h-7 text-xs"
+                                  onClick={() => handleSaveEdit(v)}
+                                  disabled={savingId === v.id}
+                                >
+                                  {savingId === v.id ? (
+                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                  ) : (
+                                    "Save"
+                                  )}
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 text-xs"
+                                  onClick={() => setEditingId(null)}
+                                >
+                                  Cancel
+                                </Button>
+                              </>
+                            ) : (
+                              <>
+                                {v.isSecret && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon-sm"
+                                    title={isRevealed ? "Hide" : "Reveal"}
+                                    disabled={revealingId === v.id}
+                                    onClick={() => handleReveal(v.id)}
+                                  >
+                                    {revealingId === v.id ? (
+                                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                    ) : isRevealed ? (
+                                      <EyeOff className="h-3.5 w-3.5" />
+                                    ) : (
+                                      <Eye className="h-3.5 w-3.5" />
+                                    )}
+                                  </Button>
+                                )}
+                                <Button
+                                  variant="ghost"
+                                  size="icon-sm"
+                                  title="Copy"
+                                  onClick={() =>
+                                    handleCopy(displayVal ?? "", v.key)
+                                  }
+                                  disabled={v.isSecret && !isRevealed}
+                                >
+                                  <Copy className="h-3.5 w-3.5" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon-sm"
+                                  title="Edit"
+                                  onClick={() => startEdit(v)}
+                                >
+                                  <svg
+                                    width="14"
+                                    height="14"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                  >
+                                    <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+                                  </svg>
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon-sm"
+                                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                                  title="Delete"
+                                  disabled={deletingId === v.id}
+                                  onClick={() => handleDelete(v.id, v.key)}
+                                >
+                                  {deletingId === v.id ? (
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  ) : (
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  )}
+                                </Button>
+                              </>
                             )}
-                            <Button
-                              variant="ghost"
-                              size="icon-sm"
-                              title="Copy"
-                              onClick={() =>
-                                handleCopy(displayVal ?? "", v.key)
-                              }
-                              disabled={v.isSecret && !isRevealed}
-                            >
-                              <Copy className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon-sm"
-                              title="Edit"
-                              onClick={() => startEdit(v)}
-                            >
-                              <svg
-                                width="14"
-                                height="14"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              >
-                                <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-                              </svg>
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon-sm"
-                              className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                              title="Delete"
-                              disabled={deletingId === v.id}
-                              onClick={() => handleDelete(v.id, v.key)}
-                            >
-                              {deletingId === v.id ? (
-                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                              ) : (
-                                <Trash2 className="h-3.5 w-3.5" />
-                              )}
-                            </Button>
-                          </>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
-      )}
 
-      <p className="text-xs text-muted-foreground">
-        {variables.length} variable{variables.length !== 1 ? "s" : ""} ·
-        AES-256-GCM encrypted
-      </p>
+        <div className="bg-muted/30 px-6 py-3 border-t border-border/40 flex items-center justify-between">
+          <span className="text-[13px] text-muted-foreground">
+            {variables.length} variable{variables.length !== 1 ? "s" : ""} ·
+            AES-256-GCM encrypted
+          </span>
+        </div>
+      </div>
     </div>
   );
 }

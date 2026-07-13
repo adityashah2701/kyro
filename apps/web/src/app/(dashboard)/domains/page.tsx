@@ -12,6 +12,8 @@ import { domain, project } from "@kyro/database/schema";
 import { eq, desc, and } from "@kyro/database";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
+import { DomainsTab } from "@/features/domains/components/domains-tab";
+import { notFound } from "next/navigation";
 
 export const metadata = { title: "Domains | Kyro" };
 
@@ -27,6 +29,20 @@ export default async function DomainsPage(props: {
 
   if (!session || !session.user) {
     return null;
+  }
+
+  let projectData = null;
+  if (projectId) {
+    projectData = await db.query.project.findFirst({
+      where: and(
+        eq(project.id, projectId),
+        eq(project.userId, session.user.id)
+      ),
+    });
+
+    if (!projectData) {
+      notFound();
+    }
   }
 
   const whereClause = projectId
@@ -52,6 +68,20 @@ export default async function DomainsPage(props: {
     .innerJoin(project, eq(domain.projectId, project.id))
     .where(whereClause)
     .orderBy(desc(domain.createdAt));
+
+  if (projectId) {
+    return (
+      <PageContainer className="max-w-4xl pb-12">
+        <PageHeader
+          title="Domains"
+          description={`Manage custom domains and SSL certificates for ${projectData?.name}.`}
+        />
+        <div className="mt-8 animate-in fade-in-50 duration-500">
+          <DomainsTab domains={userDomains} projectId={projectId} />
+        </div>
+      </PageContainer>
+    );
+  }
 
   return (
     <PageContainer>

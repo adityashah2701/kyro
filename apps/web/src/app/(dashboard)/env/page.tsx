@@ -19,6 +19,10 @@ import { environmentVariable, project } from "@kyro/database/schema";
 import { eq, desc, and } from "@kyro/database";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
+import { notFound } from "next/navigation";
+import { EnvTab } from "@/features/environment/components/env-tab";
+import { getSecretProvider } from "@/features/environment/providers/secret.provider";
+import { type Environment } from "@/features/environment/schemas";
 
 export const metadata = { title: "Environment Variables | Kyro" };
 
@@ -36,6 +40,20 @@ export default async function EnvVariablesPage(props: {
     return null;
   }
 
+  let projectData = null;
+  if (projectId) {
+    projectData = await db.query.project.findFirst({
+      where: and(
+        eq(project.id, projectId),
+        eq(project.userId, session.user.id)
+      ),
+    });
+
+    if (!projectData) {
+      notFound();
+    }
+  }
+
   const whereClause = projectId
     ? and(
         eq(project.userId, session.user.id),
@@ -43,13 +61,15 @@ export default async function EnvVariablesPage(props: {
       )
     : eq(project.userId, session.user.id);
 
-  const userEnvs = await db
+  const userEnvsRaw = await db
     .select({
       id: environmentVariable.id,
       key: environmentVariable.key,
       environment: environmentVariable.environment,
       isSecret: environmentVariable.isSecret,
+      encryptedValue: environmentVariable.encryptedValue,
       createdAt: environmentVariable.createdAt,
+      updatedAt: environmentVariable.updatedAt,
       project: {
         id: project.id,
         name: project.name,
@@ -60,6 +80,32 @@ export default async function EnvVariablesPage(props: {
     .innerJoin(project, eq(environmentVariable.projectId, project.id))
     .where(whereClause)
     .orderBy(desc(environmentVariable.createdAt));
+
+  const provider = getSecretProvider();
+  const MASK = "••••••••";
+
+  const userEnvs = await Promise.all(
+    userEnvsRaw.map(async (row) => {
+      let displayValue = MASK;
+      if (!row.isSecret) {
+        try {
+          displayValue = await provider.decrypt(row.encryptedValue);
+        } catch {
+          displayValue = "[decryption error]";
+        }
+      }
+      return {
+        id: row.id,
+        key: row.key,
+        displayValue,
+        environment: row.environment as Environment,
+        isSecret: row.isSecret,
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
+        project: row.project,
+      };
+    })
+  );
 
   const getEnvIcon = (env: string) => {
     switch (env) {
@@ -73,6 +119,20 @@ export default async function EnvVariablesPage(props: {
         return null;
     }
   };
+
+  if (projectId) {
+    return (
+      <PageContainer className="max-w-4xl pb-12">
+        <PageHeader
+          title="Environment Variables"
+          description={`Manage environment variables for ${projectData?.name}.`}
+        />
+        <div className="mt-8 animate-in fade-in-50 duration-500">
+          <EnvTab variables={userEnvs} projectId={projectId} />
+        </div>
+      </PageContainer>
+    );
+  }
 
   return (
     <PageContainer>
