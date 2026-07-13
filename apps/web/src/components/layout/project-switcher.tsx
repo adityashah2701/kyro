@@ -2,10 +2,11 @@
 
 import * as React from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import { Check, ChevronsUpDown, FolderOpen, Globe } from "lucide-react";
+import { Check, ChevronsUpDown, Globe, Plus } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   Command,
   CommandEmpty,
@@ -13,6 +14,7 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
+  CommandSeparator,
 } from "@/components/ui/command";
 import {
   DropdownMenu,
@@ -54,43 +56,55 @@ export function ProjectSwitcher({ projects }: { projects: Project[] }) {
             variant="ghost"
             role="combobox"
             aria-expanded={open}
-            className="w-[200px] justify-between h-8 px-2 hover:bg-muted/50 border-none font-medium"
+            className="w-[260px] justify-between h-9 px-2 hover:bg-accent border-none font-medium outline-none focus-visible:ring-1 focus-visible:ring-ring"
           >
             <span className="flex items-center gap-2 truncate">
               {selectedProject ? (
                 <>
-                  <FolderOpen className="size-4 shrink-0" />
+                  <Avatar className="size-5 shrink-0 rounded-sm">
+                    <AvatarFallback className="rounded-sm bg-primary/10 text-primary text-[10px] font-semibold">
+                      {selectedProject.name.charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
                   <span className="truncate">{selectedProject.name}</span>
                 </>
               ) : (
                 <>
-                  <Globe className="size-4 shrink-0" />
+                  <div className="flex size-5 shrink-0 items-center justify-center rounded-sm bg-primary/10 text-primary">
+                    <Globe className="size-3.5" />
+                  </div>
                   <span className="truncate">All Projects</span>
                 </>
               )}
             </span>
-            <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
+            <ChevronsUpDown className="ml-2 size-4 shrink-0 text-muted-foreground opacity-50" />
           </Button>
         }
-      ></DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-[220px] p-0">
+      />
+      <DropdownMenuContent
+        align="start"
+        className="w-[400px] p-0 shadow-lg rounded-xl overflow-hidden"
+      >
         <Command>
           <CommandInput
             placeholder="Search project..."
             onKeyDown={(e) => e.stopPropagation()}
+            className="h-9"
           />
           <CommandList>
             <CommandEmpty>No project found.</CommandEmpty>
-            <CommandGroup>
+            <CommandGroup heading="Projects">
               <CommandItem
                 onSelect={() => onSelect(null)}
-                className="text-sm cursor-pointer"
+                className="text-sm cursor-pointer py-1.5"
               >
-                <Globe className="mr-2 size-4 text-muted-foreground" />
-                All Projects
+                <div className="flex size-5 shrink-0 items-center justify-center rounded-sm bg-primary/10 text-primary mr-2">
+                  <Globe className="size-3.5" />
+                </div>
+                <span className="truncate font-medium">All Projects</span>
                 <Check
                   className={cn(
-                    "ml-auto size-4",
+                    "size-4 shrink-0",
                     !currentProjectId ? "opacity-100" : "opacity-0"
                   )}
                 />
@@ -99,10 +113,14 @@ export function ProjectSwitcher({ projects }: { projects: Project[] }) {
                 <CommandItem
                   key={project.id}
                   onSelect={() => onSelect(project.id)}
-                  className="text-sm cursor-pointer"
+                  className="text-sm cursor-pointer py-1.5"
                 >
-                  <FolderOpen className="mr-2 size-4 text-muted-foreground" />
-                  <span className="truncate">{project.name}</span>
+                  <Avatar className="size-5 shrink-0 rounded-sm mr-2">
+                    <AvatarFallback className="rounded-sm bg-primary/10 text-primary text-[10px] font-semibold">
+                      {project.name.charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span className="truncate font-medium">{project.name}</span>
                   <Check
                     className={cn(
                       "ml-auto size-4 shrink-0",
@@ -113,6 +131,23 @@ export function ProjectSwitcher({ projects }: { projects: Project[] }) {
                   />
                 </CommandItem>
               ))}
+            </CommandGroup>
+            <CommandSeparator />
+            <CommandGroup>
+              <CommandItem
+                onSelect={() => {
+                  setOpen(false);
+                  router.push("/projects/new");
+                }}
+                className="text-sm cursor-pointer py-1.5"
+              >
+                <div className="flex size-5 shrink-0 items-center justify-center rounded-sm bg-muted text-muted-foreground mr-2">
+                  <Plus className="size-3.5" />
+                </div>
+                <span className="font-medium text-muted-foreground">
+                  Create Project
+                </span>
+              </CommandItem>
             </CommandGroup>
           </CommandList>
         </Command>
