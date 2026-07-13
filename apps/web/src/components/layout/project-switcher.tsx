@@ -96,7 +96,7 @@ export function ProjectSwitcher({ projects }: { projects: Project[] }) {
             <CommandGroup heading="Projects">
               <CommandItem
                 onSelect={() => onSelect(null)}
-                className="text-sm cursor-pointer py-1.5"
+                className="text-sm cursor-pointer py-1.5 justify-between"
               >
                 <div className="flex size-5 shrink-0 items-center justify-center rounded-sm bg-primary/10 text-primary mr-2">
                   <Globe className="size-3.5" />
