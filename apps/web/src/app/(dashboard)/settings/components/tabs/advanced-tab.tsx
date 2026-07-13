@@ -1,7 +1,13 @@
+"use client";
+
+import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { SettingsCard, SettingsCardFooter } from "../settings-card";
+import { SettingsCard } from "../settings-card";
+import { deleteProject } from "@/features/projects/actions";
+import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
 interface ProjectData {
   id: string;
@@ -12,6 +18,30 @@ interface AdvancedTabProps {
 }
 
 export function AdvancedTab({ projectData }: AdvancedTabProps) {
+  const [isDeleting, setIsDeleting] = useState(false);
+  const router = useRouter();
+
+  const handleDelete = async () => {
+    if (
+      !window.confirm(
+        "Are you sure you want to delete this project? This action is irreversible."
+      )
+    ) {
+      return;
+    }
+
+    setIsDeleting(true);
+    const res = await deleteProject(projectData.id);
+    setIsDeleting(false);
+
+    if (res?.error) {
+      toast.error(res.error);
+    } else {
+      toast.success("Project deleted successfully");
+      router.push("/dashboard");
+    }
+  };
+
   return (
     <div className="flex flex-col gap-8 animate-in fade-in-50 duration-500">
       <SettingsCard
@@ -72,8 +102,10 @@ export function AdvancedTab({ projectData }: AdvancedTabProps) {
             <Button
               variant="destructive"
               className="w-full md:w-auto h-10 shadow-sm hover:shadow-md transition-all"
+              onClick={handleDelete}
+              disabled={isDeleting}
             >
-              Delete Project
+              {isDeleting ? "Deleting..." : "Delete Project"}
             </Button>
           </div>
         </SettingsCard>

@@ -1,7 +1,12 @@
+"use client";
+
+import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { SettingsCard, SettingsCardFooter } from "../settings-card";
+import { updateProject } from "@/features/projects/actions";
+import { toast } from "sonner";
 
 interface ProjectData {
   id: string;
@@ -16,50 +21,95 @@ interface GeneralTabProps {
 }
 
 export function GeneralTab({ projectData }: GeneralTabProps) {
+  const [loading, setLoading] = useState<string | null>(null);
+
+  const handleSave = async (
+    formData: FormData,
+    field: "name" | "slug" | "visibility"
+  ) => {
+    setLoading(field);
+    const value = formData.get(field) as string;
+
+    const dataToUpdate = {
+      id: projectData.id,
+      [field]: value,
+    };
+
+    const res = await updateProject(dataToUpdate);
+    setLoading(null);
+
+    if (res?.error) {
+      toast.error(res.error);
+    } else {
+      toast.success(`Project ${field} updated successfully`);
+    }
+  };
+
   return (
     <div className="flex flex-col gap-8 animate-in fade-in-50 duration-500">
-      <SettingsCard
-        title="Project Name"
-        description="Used to identify your project on the Dashboard, CLI, and in the URL."
-      >
-        <Input
-          defaultValue={projectData.name}
-          disabled
-          className="bg-background/50 h-10 shadow-sm w-full md:max-w-md"
-        />
-        <SettingsCardFooter className="-mx-6 -mb-6 mt-2">
-          <span className="text-[13px] text-muted-foreground">
-            Please contact support to change project name.
-          </span>
-          <Button disabled size="sm" className="h-8">
-            Save
-          </Button>
-        </SettingsCardFooter>
-      </SettingsCard>
-
-      <SettingsCard
-        title="Project Slug"
-        description="The unique identifier for your project. This will be used in your default kyro.app domain."
-      >
-        <div className="flex items-center gap-2 w-full md:max-w-md">
-          <div className="bg-muted px-3 h-10 flex items-center justify-center rounded-l-md border border-r-0 border-input text-sm text-muted-foreground">
-            kyro.app/
-          </div>
+      <form action={(fd) => handleSave(fd, "name")}>
+        <SettingsCard
+          title="Project Name"
+          description="Used to identify your project on the Dashboard, CLI, and in the URL."
+        >
           <Input
-            defaultValue={projectData.slug}
-            disabled
-            className="bg-background/50 h-10 rounded-l-none font-mono text-[13px] shadow-sm flex-1"
+            key={`name-${projectData.name}`}
+            name="name"
+            defaultValue={projectData.name}
+            className="bg-background/50 h-10 shadow-sm w-full md:max-w-md"
+            required
+            maxLength={64}
           />
-        </div>
-        <SettingsCardFooter className="-mx-6 -mb-6 mt-2">
-          <span className="text-[13px] text-muted-foreground">
-            Please contact support to change project slug.
-          </span>
-          <Button disabled size="sm" className="h-8">
-            Save
-          </Button>
-        </SettingsCardFooter>
-      </SettingsCard>
+          <SettingsCardFooter className="-mx-6 -mb-6 mt-2">
+            <span className="text-[13px] text-muted-foreground">
+              A maximum of 64 characters.
+            </span>
+            <Button
+              type="submit"
+              disabled={loading === "name"}
+              size="sm"
+              className="h-8"
+            >
+              {loading === "name" ? "Saving..." : "Save"}
+            </Button>
+          </SettingsCardFooter>
+        </SettingsCard>
+      </form>
+
+      <form action={(fd) => handleSave(fd, "slug")}>
+        <SettingsCard
+          title="Project Slug"
+          description="The unique identifier for your project. This will be used in your default kyro.app domain."
+        >
+          <div className="flex items-center gap-2 w-full md:max-w-md">
+            <div className="bg-muted px-3 h-10 flex items-center justify-center rounded-l-md border border-r-0 border-input text-sm text-muted-foreground">
+              kyro.app/
+            </div>
+            <Input
+              key={`slug-${projectData.slug}`}
+              name="slug"
+              defaultValue={projectData.slug}
+              className="bg-background/50 h-10 rounded-l-none font-mono text-[13px] shadow-sm flex-1"
+              required
+              maxLength={64}
+              pattern="[a-z0-9-]+"
+            />
+          </div>
+          <SettingsCardFooter className="-mx-6 -mb-6 mt-2">
+            <span className="text-[13px] text-muted-foreground">
+              Lowercase letters, numbers, and hyphens only.
+            </span>
+            <Button
+              type="submit"
+              disabled={loading === "slug"}
+              size="sm"
+              className="h-8"
+            >
+              {loading === "slug" ? "Saving..." : "Save"}
+            </Button>
+          </SettingsCardFooter>
+        </SettingsCard>
+      </form>
 
       <SettingsCard
         title="Project Icon"
@@ -90,26 +140,37 @@ export function GeneralTab({ projectData }: GeneralTabProps) {
         </SettingsCardFooter>
       </SettingsCard>
 
-      <SettingsCard
-        title="Visibility"
-        description="Control who can view this project. Public projects are visible to anyone on the internet."
-      >
-        <div className="flex flex-col gap-2 w-full md:max-w-md">
-          <Input
-            defaultValue={projectData.visibility}
-            disabled
-            className="bg-background/50 h-10 capitalize shadow-sm"
-          />
-        </div>
-        <SettingsCardFooter className="-mx-6 -mb-6 mt-2">
-          <span className="text-[13px] text-muted-foreground">
-            Visibility is locked to private for early access.
-          </span>
-          <Button disabled size="sm" className="h-8">
-            Save
-          </Button>
-        </SettingsCardFooter>
-      </SettingsCard>
+      <form action={(fd) => handleSave(fd, "visibility")}>
+        <SettingsCard
+          title="Visibility"
+          description="Control who can view this project. Public projects are visible to anyone on the internet."
+        >
+          <div className="flex flex-col gap-2 w-full md:max-w-md">
+            <select
+              key={`visibility-${projectData.visibility}`}
+              name="visibility"
+              defaultValue={projectData.visibility}
+              className="flex h-10 w-full rounded-md border border-input bg-background/50 px-3 py-2 text-sm shadow-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <option value="private">Private</option>
+              <option value="public">Public</option>
+            </select>
+          </div>
+          <SettingsCardFooter className="-mx-6 -mb-6 mt-2">
+            <span className="text-[13px] text-muted-foreground">
+              Caution: changing to public exposes your project to the world.
+            </span>
+            <Button
+              type="submit"
+              disabled={loading === "visibility"}
+              size="sm"
+              className="h-8"
+            >
+              {loading === "visibility" ? "Saving..." : "Save"}
+            </Button>
+          </SettingsCardFooter>
+        </SettingsCard>
+      </form>
 
       <SettingsCard
         title="Project Metadata"

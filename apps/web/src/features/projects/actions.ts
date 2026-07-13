@@ -51,6 +51,14 @@ export async function createProject(data: CreateProjectInput) {
         outputDirectory: parsedData.data.outputDirectory || null,
         rootDirectory: parsedData.data.rootDirectory || "/",
         visibility: parsedData.data.visibility,
+        maintenanceMode: parsedData.data.maintenanceMode ?? false,
+        deploymentRegion: parsedData.data.deploymentRegion || "sfo1",
+        buildTimeout: parsedData.data.buildTimeout ?? 45,
+        webAnalyticsEnabled: parsedData.data.webAnalyticsEnabled ?? false,
+        passwordProtectionEnabled:
+          parsedData.data.passwordProtectionEnabled ?? false,
+        passwordProtectionPassword:
+          parsedData.data.passwordProtectionPassword || null,
       })
       .returning();
 
@@ -101,6 +109,10 @@ export async function updateProject(data: UpdateProjectInput) {
 
     revalidatePath("/projects");
     revalidatePath(`/projects/${id}`);
+    revalidatePath("/settings");
+    revalidatePath("/dashboard");
+    revalidatePath("/");
+
     return { success: true, project: updatedProject };
   } catch (error) {
     console.error("Failed to update project:", error);

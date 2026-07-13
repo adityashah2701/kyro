@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { SettingsCard } from "../settings-card";
 import {
@@ -7,8 +10,39 @@ import {
   UploadCloud,
   TrendingUp,
 } from "lucide-react";
+import { updateProject } from "@/features/projects/actions";
+import { toast } from "sonner";
 
-export function AnalyticsTab() {
+interface ProjectData {
+  id: string;
+  webAnalyticsEnabled?: boolean | null;
+}
+
+interface AnalyticsTabProps {
+  projectData: ProjectData;
+}
+
+export function AnalyticsTab({ projectData }: AnalyticsTabProps) {
+  const [loading, setLoading] = useState(false);
+  const [enabled, setEnabled] = useState(!!projectData.webAnalyticsEnabled);
+
+  const handleToggleAnalytics = async () => {
+    setLoading(true);
+    const newState = !enabled;
+    const res = await updateProject({
+      id: projectData.id,
+      webAnalyticsEnabled: newState,
+    });
+
+    setLoading(false);
+    if (res?.error) {
+      toast.error(res.error);
+    } else {
+      setEnabled(newState);
+      toast.success(`Web Analytics ${newState ? "enabled" : "disabled"}`);
+    }
+  };
+
   return (
     <div className="flex flex-col gap-8 animate-in fade-in-50 duration-500">
       <SettingsCard
@@ -76,13 +110,25 @@ export function AnalyticsTab() {
         title="Web Analytics"
         description="Enable Web Analytics to track visitors, page views, and performance metrics directly on the Kyro platform."
       >
-        <div className="flex flex-col items-center justify-center py-8 text-center bg-muted/20 border border-dashed rounded-lg">
-          <TrendingUp className="size-8 text-muted-foreground mb-4" />
+        <div className="flex flex-col items-center justify-center py-8 text-center bg-muted/20 border border-dashed rounded-lg transition-colors">
+          <TrendingUp
+            className={`size-8 mb-4 ${enabled ? "text-primary" : "text-muted-foreground"}`}
+          />
           <span className="text-sm font-medium text-muted-foreground mb-4">
-            Web Analytics is currently disabled for this project.
+            Web Analytics is currently {enabled ? "enabled" : "disabled"} for
+            this project.
           </span>
-          <Button variant="outline" size="sm" disabled>
-            Enable Web Analytics
+          <Button
+            variant={enabled ? "default" : "outline"}
+            size="sm"
+            onClick={handleToggleAnalytics}
+            disabled={loading}
+          >
+            {loading
+              ? "Processing..."
+              : enabled
+                ? "Disable Web Analytics"
+                : "Enable Web Analytics"}
           </Button>
         </div>
       </SettingsCard>

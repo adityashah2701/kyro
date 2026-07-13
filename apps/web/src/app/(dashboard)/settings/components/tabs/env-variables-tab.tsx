@@ -2,12 +2,26 @@ import { Button } from "@/components/ui/button";
 import { SettingsCard } from "../settings-card";
 import { Lock, ArrowRight, Server, Globe, Laptop } from "lucide-react";
 import Link from "next/link";
+import { db } from "@kyro/database";
+import { environmentVariable } from "@kyro/database/schema";
+import { eq } from "@kyro/database";
 
 interface EnvVariablesTabProps {
   projectId: string;
 }
 
-export function EnvVariablesTab({ projectId }: EnvVariablesTabProps) {
+export async function EnvVariablesTab({ projectId }: EnvVariablesTabProps) {
+  const envs = await db
+    .select({ environment: environmentVariable.environment })
+    .from(environmentVariable)
+    .where(eq(environmentVariable.projectId, projectId));
+
+  const counts = {
+    production: envs.filter((e) => e.environment === "production").length,
+    preview: envs.filter((e) => e.environment === "preview").length,
+    development: envs.filter((e) => e.environment === "development").length,
+  };
+
   return (
     <div className="flex flex-col gap-8 animate-in fade-in-50 duration-500">
       <SettingsCard
@@ -24,7 +38,9 @@ export function EnvVariablesTab({ projectId }: EnvVariablesTabProps) {
               <Globe className="size-4 text-muted-foreground group-hover:text-primary transition-colors" />
               <span className="text-sm font-medium">Production</span>
             </div>
-            <div className="text-3xl font-semibold mt-2">12</div>
+            <div className="text-3xl font-semibold mt-2">
+              {counts.production}
+            </div>
             <span className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
               Variables
             </span>
@@ -37,7 +53,7 @@ export function EnvVariablesTab({ projectId }: EnvVariablesTabProps) {
               <Server className="size-4 text-muted-foreground group-hover:text-primary transition-colors" />
               <span className="text-sm font-medium">Preview</span>
             </div>
-            <div className="text-3xl font-semibold mt-2">10</div>
+            <div className="text-3xl font-semibold mt-2">{counts.preview}</div>
             <span className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
               Variables
             </span>
@@ -50,7 +66,9 @@ export function EnvVariablesTab({ projectId }: EnvVariablesTabProps) {
               <Laptop className="size-4 text-muted-foreground group-hover:text-primary transition-colors" />
               <span className="text-sm font-medium">Development</span>
             </div>
-            <div className="text-3xl font-semibold mt-2">14</div>
+            <div className="text-3xl font-semibold mt-2">
+              {counts.development}
+            </div>
             <span className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
               Variables
             </span>

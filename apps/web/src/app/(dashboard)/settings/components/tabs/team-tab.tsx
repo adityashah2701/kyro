@@ -1,6 +1,5 @@
 import { Button } from "@/components/ui/button";
 import { SettingsCard } from "../settings-card";
-import { Users, Mail, Plus } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -10,7 +9,18 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-export function TeamTab() {
+interface TeamTabProps {
+  session: {
+    user?: {
+      name?: string | null;
+      email?: string | null;
+    };
+  } | null;
+}
+
+export function TeamTab({ session }: TeamTabProps) {
+  const user = session?.user;
+
   return (
     <div className="flex flex-col gap-8 animate-in fade-in-50 duration-500">
       <SettingsCard
@@ -42,13 +52,15 @@ export function TeamTab() {
         <div className="flex flex-col border rounded-lg overflow-hidden bg-background/50">
           <div className="flex items-center justify-between p-4 border-b">
             <div className="flex items-center gap-3">
-              <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs font-semibold">
-                ME
+              <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs font-semibold uppercase">
+                {user?.name?.substring(0, 2) || "ME"}
               </div>
               <div className="flex flex-col">
-                <span className="text-sm font-medium">You</span>
+                <span className="text-sm font-medium">
+                  {user?.name || "You"}
+                </span>
                 <span className="text-xs text-muted-foreground">
-                  you@example.com
+                  {user?.email || "you@example.com"}
                 </span>
               </div>
             </div>

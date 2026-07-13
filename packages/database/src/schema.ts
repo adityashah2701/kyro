@@ -75,6 +75,14 @@ export const project = pgTable("project", {
   rootDirectory: text("rootDirectory").notNull().default("/"),
   visibility: text("visibility").notNull().default("private"),
   status: text("status").notNull().default("active"),
+  maintenanceMode: boolean("maintenanceMode").notNull().default(false),
+  deploymentRegion: text("deploymentRegion").notNull().default("sfo1"),
+  buildTimeout: integer("buildTimeout").notNull().default(45),
+  webAnalyticsEnabled: boolean("webAnalyticsEnabled").notNull().default(false),
+  passwordProtectionEnabled: boolean("passwordProtectionEnabled")
+    .notNull()
+    .default(false),
+  passwordProtectionPassword: text("passwordProtectionPassword"),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
   updatedAt: timestamp("updatedAt").notNull().defaultNow(),
 });

@@ -21,12 +21,18 @@ export const createProjectSchema = z.object({
   outputDirectory: z.string().optional(),
   rootDirectory: z.string().optional(),
   visibility: z.enum(["public", "private"]),
+  maintenanceMode: z.boolean().optional(),
+  deploymentRegion: z.string().optional(),
+  buildTimeout: z.number().int().min(1).max(300).optional(),
+  webAnalyticsEnabled: z.boolean().optional(),
+  passwordProtectionEnabled: z.boolean().optional(),
+  passwordProtectionPassword: z.string().nullable().optional(),
 });
 
 export type CreateProjectInput = z.infer<typeof createProjectSchema>;
 
 export const updateProjectSchema = createProjectSchema.partial().extend({
-  id: z.string().uuid(),
+  id: z.uuid(),
 });
 
 export type UpdateProjectInput = z.infer<typeof updateProjectSchema>;

@@ -69,7 +69,7 @@ export default async function SettingsPage(props: {
         TabContent = <BuildTab projectData={projectData} />;
         break;
       case "deployment":
-        TabContent = <DeploymentTab />;
+        TabContent = <DeploymentTab projectData={projectData} />;
         break;
       case "domains":
         TabContent = <DomainsTab />;
@@ -78,16 +78,16 @@ export default async function SettingsPage(props: {
         TabContent = <EnvVariablesTab projectId={projectId} />;
         break;
       case "analytics":
-        TabContent = <AnalyticsTab />;
+        TabContent = <AnalyticsTab projectData={projectData} />;
         break;
       case "integrations":
         TabContent = <IntegrationsTab />;
         break;
       case "security":
-        TabContent = <SecurityTab />;
+        TabContent = <SecurityTab projectData={projectData} />;
         break;
       case "team":
-        TabContent = <TeamTab />;
+        TabContent = <TeamTab session={session} />;
         break;
       case "advanced":
         TabContent = <AdvancedTab projectData={projectData} />;
@@ -106,7 +106,12 @@ export default async function SettingsPage(props: {
 
         <div className="mt-8 flex flex-col md:flex-row gap-8">
           <SettingsSidebar projectId={projectId} />
-          <div className="flex-1 min-w-0">{TabContent}</div>
+          <div
+            className="flex-1 min-w-0"
+            key={projectData.updatedAt?.toString()}
+          >
+            {TabContent}
+          </div>
         </div>
       </PageContainer>
     );
