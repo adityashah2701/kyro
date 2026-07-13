@@ -30,6 +30,7 @@ import { DeploymentStatusBadge } from "@/features/deployment/components/deployme
 import { getProjectDeployments } from "@/features/deployment/services/deployment.service";
 import { DeploymentHistoryTable } from "@/features/deployment/components/deployment-history-table";
 import { DomainService } from "@/features/domains/services/domain.service";
+import { buildPreviewLink } from "@/features/deployment/utils";
 
 export const metadata = { title: "Dashboard | Kyro" };
 
@@ -99,9 +100,15 @@ export default async function DashboardPage(props: {
           <StatCard
             label="Domain"
             value={
-              <span className="text-lg" title={mainHost}>
+              <a
+                href={buildPreviewLink(mainHost)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-lg hover:underline transition-colors block truncate"
+                title={mainHost}
+              >
                 {mainHost}
-              </span>
+              </a>
             }
             icon={Globe}
           />

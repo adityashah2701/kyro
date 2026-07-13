@@ -24,7 +24,8 @@ sudo apt install -y docker.io docker-compose-v2
 sudo systemctl enable docker
 sudo systemctl start docker
 sudo usermod -aG docker $USER
-# NOTE: You need to log out and log back in for the docker group to apply!
+# NOTE: To apply this immediately without logging out, run:
+# newgrp docker
 ```
 
 ---
@@ -96,11 +97,14 @@ mkdir -p /home/ubuntu/kyro-runners
 
 We use Docker for the background services (Redis, MinIO, PostgreSQL).
 
+> [!WARNING]
+> If you get a **"permission denied while trying to connect to the Docker daemon socket"** error, it means the `docker` group hasn't been applied to your current session yet. Run `newgrp docker` to apply it immediately, or prefix the command below with `sudo`.
+
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.freetier.yml up -d
 
 # Push the database schema
-npx dotenv-cli -e ../../.env -- npx drizzle-kit push
+cd apps/web && npx dotenv-cli -e ../../.env -- npx drizzle-kit push && cd .. && cd ..
 ```
 
 ---
