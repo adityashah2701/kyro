@@ -31,6 +31,7 @@ import { getProjectDeployments } from "@/features/deployment/services/deployment
 import { DeploymentHistoryTable } from "@/features/deployment/components/deployment-history-table";
 import { DomainService } from "@/features/domains/services/domain.service";
 import { buildPreviewLink } from "@/features/deployment/utils";
+import { ProjectDashboardView } from "@/features/projects/components/project-dashboard-view";
 
 export const metadata = { title: "Dashboard | Kyro" };
 
@@ -83,51 +84,12 @@ export default async function DashboardPage(props: {
       : `${projectData.slug}.${baseDomain}`;
 
     return (
-      <PageContainer className="space-y-8">
-        <PageHeader title={projectData.name} description="Project Overview" />
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <StatCard
-            label="Framework"
-            value={projectData.framework}
-            icon={TerminalSquare}
-            accent
-          />
-          <StatCard
-            label="Deployments"
-            value={deployments.length}
-            icon={Rocket}
-          />
-          <StatCard
-            label="Domain"
-            value={
-              <a
-                href={buildPreviewLink(mainHost)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-lg hover:underline transition-colors block truncate"
-                title={mainHost}
-              >
-                {mainHost}
-              </a>
-            }
-            icon={Globe}
-          />
-          <StatCard
-            label="Status"
-            value={<span className="capitalize">{projectData.status}</span>}
-            icon={Activity}
-          />
-        </div>
-
-        <div>
-          <h2 className="mb-4 text-base font-semibold tracking-tight">
-            Recent Deployments
-          </h2>
-          <DeploymentHistoryTable
-            deployments={deploymentDataList.slice(0, 5)}
-            projectId={projectId}
-          />
-        </div>
+      <PageContainer>
+        <ProjectDashboardView
+          project={projectData}
+          deployments={deploymentDataList}
+          mainHost={mainHost}
+        />
       </PageContainer>
     );
   }
