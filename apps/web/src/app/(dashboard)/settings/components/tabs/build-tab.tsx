@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { updateProject } from "@/features/projects/actions";
+import { frameworkRegistry } from "@/features/projects/frameworks/registry";
 import { toast } from "sonner";
 
 interface ProjectData {
@@ -83,14 +84,14 @@ export function BuildTab({ projectData }: BuildTabProps) {
           <div className="w-full md:max-w-md">
             <select
               name="framework"
-              defaultValue={projectData.framework || "nextjs"}
+              defaultValue={projectData.framework || "Next.js"}
               className="flex h-10 w-full rounded-md border border-input bg-background/50 px-3 py-2 text-sm shadow-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <option value="nextjs">Next.js</option>
-              <option value="react">React (Vite)</option>
-              <option value="vue">Vue</option>
-              <option value="svelte">SvelteKit</option>
-              <option value="node">Node.js</option>
+              {frameworkRegistry.map((fw) => (
+                <option key={fw.id} value={fw.name}>
+                  {fw.name}
+                </option>
+              ))}
             </select>
           </div>
           <SettingsCardFooter className="-mx-6 -mb-6 mt-2">
