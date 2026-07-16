@@ -6,6 +6,7 @@ export interface ResolvedRoute {
   artifactLocation: string;
   startCommand: string | null;
   nodeVersion: string;
+  maintenanceMode: boolean;
 }
 
 /** Extracts the node major version recorded on a deployment, defaulting to 20. */
@@ -54,6 +55,7 @@ export class RoutingService {
           artifactLocation: activeDeployment.artifactLocation,
           startCommand: proj?.startCommand || null,
           nodeVersion: nodeVersionOf(activeDeployment),
+          maintenanceMode: proj?.maintenanceMode ?? false,
         };
       }
     }
@@ -85,6 +87,7 @@ export class RoutingService {
         artifactLocation: previewMatch.artifactLocation,
         startCommand: proj?.startCommand || null,
         nodeVersion: nodeVersionOf(previewMatch),
+        maintenanceMode: proj?.maintenanceMode ?? false,
       };
     }
 
@@ -111,6 +114,7 @@ export class RoutingService {
           artifactLocation: activeDeployment.artifactLocation,
           startCommand: projectMatch.startCommand || null,
           nodeVersion: nodeVersionOf(activeDeployment),
+          maintenanceMode: projectMatch.maintenanceMode ?? false,
         };
       }
     }

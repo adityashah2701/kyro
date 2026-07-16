@@ -13,6 +13,8 @@ interface ProjectData {
   deploymentRegion?: string | null;
   buildTimeout?: number | null;
   maintenanceMode?: boolean | null;
+  passwordProtectionEnabled?: boolean | null;
+  passwordProtectionPassword?: string | null;
 }
 
 interface DeploymentTabProps {
@@ -24,6 +26,10 @@ export function DeploymentTab({ projectData }: DeploymentTabProps) {
 
   const [maintenanceMode, setMaintenanceMode] = useState(
     !!projectData.maintenanceMode
+  );
+
+  const [passwordProtection, setPasswordProtection] = useState(
+    !!projectData.passwordProtectionEnabled
   );
 
   const handleSave = async (formData: FormData, fieldName: string) => {
@@ -40,6 +46,10 @@ export function DeploymentTab({ projectData }: DeploymentTabProps) {
         formData.get("timeout") as string,
         10
       );
+    } else if (fieldName === "password") {
+      dataToUpdate.passwordProtectionPassword = formData.get(
+        "password"
+      ) as string;
     }
 
     const res = await updateProject(dataToUpdate);
@@ -64,6 +74,21 @@ export function DeploymentTab({ projectData }: DeploymentTabProps) {
       setMaintenanceMode(!checked);
     } else {
       toast.success(`Maintenance mode ${checked ? "enabled" : "disabled"}`);
+    }
+  };
+
+  const handleTogglePasswordProtection = async (checked: boolean) => {
+    setPasswordProtection(checked);
+    const res = await updateProject({
+      id: projectData.id,
+      passwordProtectionEnabled: checked,
+    });
+
+    if (res?.error) {
+      toast.error(res.error);
+      setPasswordProtection(!checked);
+    } else {
+      toast.success(`Password protection ${checked ? "enabled" : "disabled"}`);
     }
   };
 
@@ -141,14 +166,45 @@ export function DeploymentTab({ projectData }: DeploymentTabProps) {
         title="Deployment Protection"
         description="Require an authentication mechanism to access Preview Deployments."
       >
-        <div className="flex items-center justify-between w-full md:max-w-md p-4 border rounded-lg bg-background/50">
-          <div className="flex flex-col gap-1">
-            <span className="text-sm font-medium">Kyro Authentication</span>
-            <span className="text-xs text-muted-foreground">
-              Require visitors to be logged in to your team.
-            </span>
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center justify-between w-full md:max-w-md p-4 border rounded-lg bg-background/50">
+            <div className="flex flex-col gap-1">
+              <span className="text-sm font-medium">Password Protection</span>
+              <span className="text-xs text-muted-foreground">
+                Require a password to access deployments.
+              </span>
+            </div>
+            <Switch
+              checked={passwordProtection}
+              onCheckedChange={handleTogglePasswordProtection}
+              className="shrink-0"
+            />
           </div>
-          <Switch checked={false} disabled />
+
+          {passwordProtection && (
+            <form
+              action={(fd) => handleSave(fd, "password")}
+              className="flex flex-col gap-2 w-full md:max-w-md mt-2"
+            >
+              <div className="flex gap-2">
+                <Input
+                  type="password"
+                  name="password"
+                  placeholder="Enter a password"
+                  defaultValue={projectData.passwordProtectionPassword || ""}
+                  required
+                  className="bg-background/50 h-10 shadow-sm flex-1"
+                />
+                <Button
+                  type="submit"
+                  disabled={loading === "password"}
+                  className="h-10 shrink-0"
+                >
+                  {loading === "password" ? "Saving..." : "Save Password"}
+                </Button>
+              </div>
+            </form>
+          )}
         </div>
       </SettingsCard>
 
@@ -156,7 +212,9 @@ export function DeploymentTab({ projectData }: DeploymentTabProps) {
         title="Maintenance Mode"
         description="Temporarily pause all traffic to your project and serve a maintenance page."
       >
-        <div className="flex items-center justify-between w-full p-4 border border-warning/30 bg-warning/5 rounded-lg">
+        <div
+          className={`flex items-center justify-between w-full p-4 border rounded-lg transition-colors ${maintenanceMode ? "border-warning/30 bg-warning/5" : "bg-background/50"}`}
+        >
           <div className="flex flex-col gap-1 lg:max-w-[70%]">
             <span className="text-sm font-medium">Enable Maintenance Mode</span>
             <span className="text-xs text-muted-foreground">
@@ -168,6 +226,7 @@ export function DeploymentTab({ projectData }: DeploymentTabProps) {
           <Switch
             checked={maintenanceMode}
             onCheckedChange={handleToggleMaintenance}
+            className="shrink-0"
           />
         </div>
       </SettingsCard>
