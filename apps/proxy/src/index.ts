@@ -55,6 +55,39 @@ proxyServer.on("error", (err, req, res) => {
   }
 });
 
+app.post(
+  "/_kyro/auth",
+  express.urlencoded({ extended: true }),
+  async (req, res) => {
+    const host = req.headers.host;
+    if (!host) {
+      return res.status(400).send("Bad Request: Missing Host header");
+    }
+
+    try {
+      const route = await RoutingService.resolveHost(host);
+      if (!route || !route.passwordProtectionEnabled) {
+        return res.status(404).send("Deployment not found or not protected.");
+      }
+
+      const password = req.body.password;
+      if (password === route.passwordProtectionPassword) {
+        // Set cookie for 30 days
+        res.setHeader(
+          "Set-Cookie",
+          `kyro_auth_${route.projectId}=true; Path=/; HttpOnly; Max-Age=2592000`,
+        );
+        return res.redirect("/");
+      } else {
+        return res.redirect("/?error=1");
+      }
+    } catch (error) {
+      console.error("[Auth Error]:", error);
+      res.status(500).send("Internal Server Error");
+    }
+  },
+);
+
 app.use(async (req, res, next) => {
   const host = req.headers.host;
   if (!host) {
@@ -122,6 +155,87 @@ app.use(async (req, res, next) => {
 </body>
 </html>`;
       return res.status(503).send(maintenanceHtml);
+    }
+
+    // Check for Password Protection
+    if (route.passwordProtectionEnabled) {
+      const parseCookies = (cookieHeader: string | undefined) => {
+        if (!cookieHeader) return {};
+        return Object.fromEntries(
+          cookieHeader.split("; ").map((c) => c.split("=")),
+        );
+      };
+      const cookies = parseCookies(req.headers.cookie);
+
+      if (cookies[`kyro_auth_${route.projectId}`] !== "true") {
+        const authHtml = `
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Password Protected</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      darkMode: 'media',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Geist Mono"', 'monospace'],
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="h-full antialiased font-sans flex flex-col md:flex-row bg-white dark:bg-[#0a0a0a] text-gray-900 dark:text-gray-100 m-0">
+  <!-- Left Side: Login Form -->
+  <div class="w-full md:w-[400px] lg:w-[450px] shrink-0 flex flex-col p-8 md:p-12 lg:p-16 border-b md:border-b-0 md:border-r border-gray-200 dark:border-neutral-900 z-10 bg-white dark:bg-[#0a0a0a] min-h-screen md:min-h-0">
+    <div class="flex items-center gap-2 mb-16">
+      <svg class="w-6 h-6 text-black dark:text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+      </svg>
+      <span class="font-semibold text-lg tracking-tight">Kyro</span>
+    </div>
+
+    <div class="flex flex-col flex-1 mt-12 md:mt-24">
+      <h1 class="text-2xl font-semibold tracking-tight mb-2">Project Protected</h1>
+      <p class="text-gray-500 dark:text-neutral-400 text-sm mb-8 leading-relaxed">
+        This deployment is password protected. Enter the password provided by the owner to continue.
+      </p>
+
+      ${req.query.error ? '<div class="bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 p-3 rounded-md text-sm border border-red-100 dark:border-red-900/50 mb-6">Incorrect password. Please try again.</div>' : ""}
+
+      <form action="/_kyro/auth" method="POST" class="flex flex-col gap-4">
+        <div class="flex flex-col gap-2">
+          <label for="password" class="text-xs font-medium text-gray-600 dark:text-neutral-300">PASSWORD</label>
+          <input type="password" name="password" id="password" required autofocus
+            class="w-full bg-transparent border border-gray-300 dark:border-neutral-800 rounded-md px-3 py-2 outline-none focus:border-black dark:focus:border-white transition-colors text-sm"
+            placeholder="Enter password"
+          />
+        </div>
+        <button type="submit" class="w-full bg-black dark:bg-white text-white dark:text-black font-medium text-sm py-2 rounded-md hover:bg-gray-800 dark:hover:bg-gray-200 transition-colors mt-2">
+          Continue
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Right Side: Decorative -->
+  <div class="hidden md:flex flex-1 relative bg-gray-50 dark:bg-[#111] overflow-hidden items-center justify-center">
+    <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-gray-200/50 via-gray-50 to-gray-50 dark:from-neutral-800/50 dark:via-[#111] dark:to-[#111]"></div>
+    <div class="w-96 h-96 border border-gray-200 dark:border-neutral-800 rounded-full absolute mix-blend-multiply dark:mix-blend-screen opacity-50 blur-[2px]"></div>
+    <div class="w-64 h-64 border border-gray-200 dark:border-neutral-800 rounded-full absolute -translate-x-12 -translate-y-12 mix-blend-multiply dark:mix-blend-screen opacity-50 blur-[2px]"></div>
+    <div class="absolute bottom-12 right-12 text-gray-300 dark:text-neutral-800 flex gap-2">
+      <svg class="w-24 h-24" viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="1"><circle cx="50" cy="50" r="40"/><circle cx="50" cy="50" r="20"/></svg>
+    </div>
+  </div>
+</body>
+</html>`;
+        return res.status(401).send(authHtml);
+      }
     }
 
     // Decide how to serve this deployment from its actual build output, not from

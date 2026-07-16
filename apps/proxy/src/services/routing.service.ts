@@ -7,6 +7,8 @@ export interface ResolvedRoute {
   startCommand: string | null;
   nodeVersion: string;
   maintenanceMode: boolean;
+  passwordProtectionEnabled: boolean;
+  passwordProtectionPassword: string | null;
 }
 
 /** Extracts the node major version recorded on a deployment, defaulting to 20. */
@@ -56,6 +58,8 @@ export class RoutingService {
           startCommand: proj?.startCommand || null,
           nodeVersion: nodeVersionOf(activeDeployment),
           maintenanceMode: proj?.maintenanceMode ?? false,
+          passwordProtectionEnabled: proj?.passwordProtectionEnabled ?? false,
+          passwordProtectionPassword: proj?.passwordProtectionPassword ?? null,
         };
       }
     }
@@ -88,6 +92,8 @@ export class RoutingService {
         startCommand: proj?.startCommand || null,
         nodeVersion: nodeVersionOf(previewMatch),
         maintenanceMode: proj?.maintenanceMode ?? false,
+        passwordProtectionEnabled: proj?.passwordProtectionEnabled ?? false,
+        passwordProtectionPassword: proj?.passwordProtectionPassword ?? null,
       };
     }
 
@@ -115,6 +121,10 @@ export class RoutingService {
           startCommand: projectMatch.startCommand || null,
           nodeVersion: nodeVersionOf(activeDeployment),
           maintenanceMode: projectMatch.maintenanceMode ?? false,
+          passwordProtectionEnabled:
+            projectMatch.passwordProtectionEnabled ?? false,
+          passwordProtectionPassword:
+            projectMatch.passwordProtectionPassword ?? null,
         };
       }
     }
