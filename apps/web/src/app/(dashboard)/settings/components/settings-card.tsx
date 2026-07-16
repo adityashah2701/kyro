@@ -53,7 +53,7 @@ export function SettingsCard({
         </div>
         <div
           className={cn(
-            "w-full flex flex-col gap-5 justify-center",
+            "w-full flex flex-col gap-5 justify-center min-w-0",
             layout === "row" && "lg:pl-6"
           )}
         >

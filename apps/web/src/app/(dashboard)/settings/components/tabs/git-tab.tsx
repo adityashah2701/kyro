@@ -5,24 +5,53 @@ import { Switch } from "@/components/ui/switch";
 import { SettingsCard, SettingsCardFooter } from "../settings-card";
 import { GitCommit, GitBranch } from "lucide-react";
 
-export function GitTab() {
+import { formatDistanceToNow } from "date-fns";
+
+interface ProjectRepo {
+  repositoryName: string;
+  owner: string;
+  selectedBranch: string;
+  createdAt: Date;
+}
+
+interface GitTabProps {
+  projectRepo?: ProjectRepo | null;
+}
+
+export function GitTab({ projectRepo }: GitTabProps) {
   return (
     <div className="flex flex-col gap-8 animate-in fade-in-50 duration-500">
       <SettingsCard
         title="Connected Repository"
         description="The Git repository connected to this project. Pushes to this repository will automatically trigger deployments."
       >
-        <div className="flex items-center justify-between p-4 border rounded-lg bg-background/50">
-          <div className="flex items-center gap-3">
-            <GitCommit className="size-5" />
-            <div className="flex flex-col">
-              <span className="text-sm font-medium">adityashah2701/kyro</span>
-              <span className="text-xs text-muted-foreground">
-                Connected 2 months ago
+        <div className="flex items-center justify-between p-4 border rounded-lg bg-background/50 gap-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <GitCommit className="size-5 shrink-0" />
+            <div className="flex flex-col min-w-0">
+              <span
+                className="text-sm font-medium truncate"
+                title={
+                  projectRepo
+                    ? `${projectRepo.owner}/${projectRepo.repositoryName}`
+                    : "No repository connected"
+                }
+              >
+                {projectRepo
+                  ? `${projectRepo.owner}/${projectRepo.repositoryName}`
+                  : "No repository connected"}
               </span>
+              {projectRepo?.createdAt && (
+                <span className="text-xs text-muted-foreground truncate">
+                  Connected{" "}
+                  {formatDistanceToNow(new Date(projectRepo.createdAt), {
+                    addSuffix: true,
+                  })}
+                </span>
+              )}
             </div>
           </div>
-          <Button variant="outline" size="sm" disabled>
+          <Button variant="outline" size="sm" disabled className="shrink-0">
             Disconnect
           </Button>
         </div>
@@ -36,7 +65,7 @@ export function GitTab() {
           <div className="flex items-center gap-2">
             <GitBranch className="size-4 text-muted-foreground" />
             <Input
-              defaultValue="main"
+              defaultValue={projectRepo?.selectedBranch || "main"}
               disabled
               className="bg-background/50 h-10 shadow-sm"
             />

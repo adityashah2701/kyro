@@ -2,7 +2,11 @@ import { PageHeader } from "@/components/layout/page-header";
 import { PageContainer } from "@/components/layout/page-container";
 import { GitHubConnectCard } from "@/features/github/components/github-connect-card";
 import { db } from "@kyro/database";
-import { githubAccount, project } from "@kyro/database/schema";
+import {
+  githubAccount,
+  project,
+  projectRepository,
+} from "@kyro/database/schema";
 import { eq, and } from "@kyro/database";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
@@ -58,12 +62,16 @@ export default async function SettingsPage(props: {
 
     if (!projectData) notFound();
 
+    const projectRepo = await db.query.projectRepository.findFirst({
+      where: eq(projectRepository.projectId, projectId),
+    });
+
     const currentTab = searchParams?.tab as string | undefined;
 
     let TabContent = <GeneralTab projectData={projectData} />;
     switch (currentTab) {
       case "git":
-        TabContent = <GitTab />;
+        TabContent = <GitTab projectRepo={projectRepo} />;
         break;
       case "build":
         TabContent = <BuildTab projectData={projectData} />;
