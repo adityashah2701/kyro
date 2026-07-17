@@ -102,25 +102,18 @@ export function DeploymentTab({ projectData }: DeploymentTabProps) {
           <div className="w-full md:max-w-md">
             <select
               name="region"
-              defaultValue={projectData.deploymentRegion || "sfo1"}
+              defaultValue={projectData.deploymentRegion || "bom1"}
               className="flex h-10 w-full rounded-md border border-input bg-background/50 px-3 py-2 text-sm shadow-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <option value="sfo1">sfo1 (San Francisco, USA)</option>
-              <option value="iad1">iad1 (Washington, D.C., USA)</option>
-              <option value="fra1">fra1 (Frankfurt, Germany)</option>
-              <option value="hnd1">hnd1 (Tokyo, Japan)</option>
+              <option value="bom1">bom1 (Navi Mumbai, India)</option>
             </select>
           </div>
           <SettingsCardFooter className="-mx-6 -mb-6 mt-2">
             <span className="text-[13px] text-muted-foreground">
-              Changing the region will take effect on the next deployment.
+              Changing the region will take effect on the next deployment
+              (Coming Soon).
             </span>
-            <Button
-              type="submit"
-              disabled={loading === "region"}
-              size="sm"
-              className="h-8"
-            >
+            <Button type="submit" disabled={true} size="sm" className="h-8">
               {loading === "region" ? "Saving..." : "Save"}
             </Button>
           </SettingsCardFooter>

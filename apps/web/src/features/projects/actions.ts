@@ -52,7 +52,7 @@ export async function createProject(data: CreateProjectInput) {
         rootDirectory: parsedData.data.rootDirectory || "/",
         visibility: parsedData.data.visibility,
         maintenanceMode: parsedData.data.maintenanceMode ?? false,
-        deploymentRegion: parsedData.data.deploymentRegion || "sfo1",
+        deploymentRegion: parsedData.data.deploymentRegion || "bom1",
         buildTimeout: parsedData.data.buildTimeout ?? 45,
         webAnalyticsEnabled: parsedData.data.webAnalyticsEnabled ?? false,
         passwordProtectionEnabled:
