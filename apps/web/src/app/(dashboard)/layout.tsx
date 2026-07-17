@@ -33,7 +33,7 @@ export default async function DashboardLayout({
   }
 
   return (
-    <div className="flex min-h-screen w-full bg-background">
+    <div className="flex h-screen w-full bg-background overflow-hidden">
       <Sidebar />
       <div className="flex flex-col flex-1 min-w-0">
         <Header projects={projects} />

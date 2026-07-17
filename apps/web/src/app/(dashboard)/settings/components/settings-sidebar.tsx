@@ -40,7 +40,7 @@ export function SettingsSidebar({ projectId }: SettingsSidebarProps) {
   ];
 
   return (
-    <nav className="w-full md:w-56 lg:w-64 shrink-0 flex flex-col gap-1 pr-0 md:pr-4">
+    <nav className="flex flex-col gap-1">
       {navItems.map((item) => {
         const isActive = currentTab === item.id;
         const Icon = item.icon;

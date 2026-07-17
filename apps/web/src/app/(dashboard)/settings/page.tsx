@@ -106,22 +106,31 @@ export default async function SettingsPage(props: {
     }
 
     return (
-      <PageContainer className="max-w-6xl pb-12">
-        <PageHeader
-          title="Project Settings"
-          description={`Manage configuration for ${projectData.name}.`}
-        />
+      <div className="flex flex-col h-full">
+        {/* Fixed header — never scrolls */}
+        <div className="shrink-0 px-4 sm:px-6 pt-6 sm:pt-10 pb-4 max-w-6xl mx-auto w-full border-b border-border/40">
+          <PageHeader
+            title="Project Settings"
+            description={`Manage configuration for ${projectData.name}.`}
+          />
+        </div>
 
-        <div className="mt-8 flex flex-col md:flex-row gap-8">
-          <SettingsSidebar projectId={projectId} />
+        {/* Body: fixed sidebar + scrollable content */}
+        <div className="flex-1 flex flex-col md:flex-row gap-8 min-h-0 max-w-6xl mx-auto w-full px-4 sm:px-6 pt-8">
+          {/* Sidebar — never scrolls */}
+          <div className="w-full md:w-56 lg:w-64 shrink-0">
+            <SettingsSidebar projectId={projectId} />
+          </div>
+
+          {/* Tab content — the ONLY scrollable area */}
           <div
-            className="flex-1 min-w-0"
+            className="flex-1 min-w-0 overflow-y-auto pb-12"
             key={projectData.updatedAt?.toString()}
           >
             {TabContent}
           </div>
         </div>
-      </PageContainer>
+      </div>
     );
   }
 
