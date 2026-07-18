@@ -181,3 +181,23 @@ export const environmentVariable = pgTable("environmentVariable", {
   createdAt: timestamp("createdAt").notNull().defaultNow(),
   updatedAt: timestamp("updatedAt").notNull().defaultNow(),
 });
+
+export const analyticsEvent = pgTable("analyticsEvent", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  projectId: uuid("projectId")
+    .notNull()
+    .references(() => project.id, { onDelete: "cascade" }),
+  deploymentId: text("deploymentId"),
+  path: text("path").notNull(),
+  method: text("method").notNull().default("GET"),
+  statusCode: integer("statusCode"),
+  host: text("host").notNull(),
+  referer: text("referer"),
+  userAgent: text("userAgent"),
+  browser: text("browser"),
+  os: text("os"),
+  country: text("country"),
+  bytesServed: integer("bytesServed"),
+  responseTime: integer("responseTime"),
+  timestamp: timestamp("timestamp").notNull().defaultNow(),
+});

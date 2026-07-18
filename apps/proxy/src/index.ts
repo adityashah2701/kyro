@@ -4,6 +4,7 @@ import { RunnerService } from "./services/runner.service";
 import { MinioStorageProvider } from "@kyro/storage";
 import path from "path";
 import httpProxy from "http-proxy";
+import { db, schema } from "@kyro/database";
 
 const app = express();
 const PORT = process.env.PROXY_PORT || 8000;
@@ -40,6 +41,65 @@ async function isStaticDeployment(artifactLocation: string): Promise<boolean> {
   );
   serveModeCache.set(artifactLocation, hasIndex);
   return hasIndex;
+}
+
+/** Lightweight User-Agent parser — no dependencies needed */
+function parseUserAgent(ua: string | undefined): {
+  browser: string;
+  os: string;
+} {
+  if (!ua) return { browser: "Unknown", os: "Unknown" };
+
+  let browser = "Other";
+  if (ua.includes("Firefox/")) browser = "Firefox";
+  else if (ua.includes("Edg/")) browser = "Edge";
+  else if (ua.includes("Chrome/")) browser = "Chrome";
+  else if (ua.includes("Safari/")) browser = "Safari";
+  else if (ua.includes("curl/")) browser = "curl";
+
+  let os = "Other";
+  if (ua.includes("Windows")) os = "Windows";
+  else if (ua.includes("Mac OS X") || ua.includes("Macintosh")) os = "macOS";
+  else if (ua.includes("Linux")) os = "Linux";
+  else if (ua.includes("Android")) os = "Android";
+  else if (ua.includes("iPhone") || ua.includes("iPad")) os = "iOS";
+
+  return { browser, os };
+}
+
+/** Fire-and-forget analytics insert */
+function logAnalyticsEvent(
+  route: {
+    projectId: string;
+    deploymentId: string;
+    webAnalyticsEnabled: boolean;
+  },
+  req: express.Request,
+  statusCode: number,
+  bytesServed: number,
+  startTime: number,
+) {
+  if (!route.webAnalyticsEnabled) return;
+
+  const { browser, os } = parseUserAgent(req.headers["user-agent"]);
+  const responseTime = Date.now() - startTime;
+
+  db.insert(schema.analyticsEvent)
+    .values({
+      projectId: route.projectId,
+      deploymentId: route.deploymentId,
+      path: req.path,
+      method: req.method,
+      statusCode,
+      host: req.headers.host || "",
+      referer: (req.headers.referer as string) || null,
+      userAgent: req.headers["user-agent"] || null,
+      browser,
+      os,
+      bytesServed,
+      responseTime,
+    })
+    .catch((err) => console.error("[Analytics Error]:", err));
 }
 
 // Handle proxy errors gracefully
@@ -95,6 +155,7 @@ app.use(async (req, res, next) => {
   }
 
   try {
+    const requestStartTime = Date.now();
     const route = await RoutingService.resolveHost(host);
 
     if (!route) {
@@ -255,6 +316,10 @@ app.use(async (req, res, next) => {
         );
 
         // Proxy the request to the dynamically spun-up local Node server
+        // Log analytics for SSR requests
+        res.on("finish", () => {
+          logAnalyticsEvent(route, req, res.statusCode, 0, requestStartTime);
+        });
         return proxyServer.web(req, res, {
           target: `http://127.0.0.1:${port}`,
         });
@@ -308,6 +373,17 @@ app.use(async (req, res, next) => {
     }
 
     result.stream.pipe(res);
+
+    // Log analytics after response is sent
+    res.on("finish", () => {
+      logAnalyticsEvent(
+        route,
+        req,
+        res.statusCode,
+        result!.size,
+        requestStartTime,
+      );
+    });
   } catch (error) {
     console.error(`[PROXY ERROR] Host: ${host} | Path: ${req.path}`, error);
     res.status(500).send("Internal Server Error");

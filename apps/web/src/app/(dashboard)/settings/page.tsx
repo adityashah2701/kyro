@@ -1,13 +1,14 @@
 import { PageHeader } from "@/components/layout/page-header";
 import { PageContainer } from "@/components/layout/page-container";
 import { GitHubConnectCard } from "@/features/github/components/github-connect-card";
-import { db } from "@kyro/database";
+import { db, sql } from "@kyro/database";
 import {
   githubAccount,
   project,
   projectRepository,
+  deployment,
 } from "@kyro/database/schema";
-import { eq, and } from "@kyro/database";
+import { eq, and, desc } from "@kyro/database";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { connectGitHub } from "@/features/github/actions";
@@ -28,6 +29,14 @@ import { IntegrationsTab } from "./components/tabs/integrations-tab";
 import { SecurityTab } from "./components/tabs/security-tab";
 import { TeamTab } from "./components/tabs/team-tab";
 import { AdvancedTab } from "./components/tabs/advanced-tab";
+import { LogsTab } from "./components/tabs/logs-tab";
+import {
+  getAnalyticsSummary,
+  getTopPages,
+  getRequestsOverTime,
+  getTopReferers,
+  getBrowserStats,
+} from "@/features/analytics/actions";
 
 export default async function SettingsPage(props: {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
@@ -85,9 +94,27 @@ export default async function SettingsPage(props: {
       case "env":
         TabContent = <EnvVariablesTab projectId={projectId} />;
         break;
-      case "analytics":
-        TabContent = <AnalyticsTab projectData={projectData} />;
+      case "analytics": {
+        const [summary, topPages, requestsOverTime, topReferers, browserStats] =
+          await Promise.all([
+            getAnalyticsSummary(projectId),
+            getTopPages(projectId),
+            getRequestsOverTime(projectId),
+            getTopReferers(projectId),
+            getBrowserStats(projectId),
+          ]);
+        TabContent = (
+          <AnalyticsTab
+            projectData={projectData}
+            summary={summary}
+            topPages={topPages}
+            requestsOverTime={requestsOverTime}
+            topReferers={topReferers}
+            browserStats={browserStats}
+          />
+        );
         break;
+      }
       case "integrations":
         TabContent = <IntegrationsTab />;
         break;
@@ -100,6 +127,33 @@ export default async function SettingsPage(props: {
       case "advanced":
         TabContent = <AdvancedTab projectData={projectData} />;
         break;
+      case "logs": {
+        const deploymentLogs = await db
+          .select({
+            id: deployment.id,
+            deploymentNumber: deployment.deploymentNumber,
+            status: deployment.status,
+            branch: deployment.branch,
+            commitMessage: deployment.commitMessage,
+            commitSha: deployment.commitSha,
+            buildDuration: deployment.buildDuration,
+            createdAt: deployment.createdAt,
+            logs: deployment.logs,
+          })
+          .from(deployment)
+          .where(eq(deployment.projectId, projectId))
+          .orderBy(desc(deployment.createdAt))
+          .limit(15);
+        TabContent = (
+          <LogsTab
+            deployments={deploymentLogs.map((d) => ({
+              ...d,
+              createdAt: d.createdAt.toISOString(),
+            }))}
+          />
+        );
+        break;
+      }
       default:
         TabContent = <GeneralTab projectData={projectData} />;
         break;

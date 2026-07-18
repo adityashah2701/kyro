@@ -9,6 +9,7 @@ export interface ResolvedRoute {
   maintenanceMode: boolean;
   passwordProtectionEnabled: boolean;
   passwordProtectionPassword: string | null;
+  webAnalyticsEnabled: boolean;
 }
 
 /** Extracts the node major version recorded on a deployment, defaulting to 20. */
@@ -60,6 +61,7 @@ export class RoutingService {
           maintenanceMode: proj?.maintenanceMode ?? false,
           passwordProtectionEnabled: proj?.passwordProtectionEnabled ?? false,
           passwordProtectionPassword: proj?.passwordProtectionPassword ?? null,
+          webAnalyticsEnabled: proj?.webAnalyticsEnabled ?? false,
         };
       }
     }
@@ -94,6 +96,7 @@ export class RoutingService {
         maintenanceMode: proj?.maintenanceMode ?? false,
         passwordProtectionEnabled: proj?.passwordProtectionEnabled ?? false,
         passwordProtectionPassword: proj?.passwordProtectionPassword ?? null,
+        webAnalyticsEnabled: proj?.webAnalyticsEnabled ?? false,
       };
     }
 
@@ -125,6 +128,7 @@ export class RoutingService {
             projectMatch.passwordProtectionEnabled ?? false,
           passwordProtectionPassword:
             projectMatch.passwordProtectionPassword ?? null,
+          webAnalyticsEnabled: projectMatch.webAnalyticsEnabled ?? false,
         };
       }
     }

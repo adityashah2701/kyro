@@ -15,6 +15,7 @@ import {
   Shield,
   Users,
   Sliders,
+  ScrollText,
 } from "lucide-react";
 
 interface SettingsSidebarProps {
@@ -36,6 +37,7 @@ export function SettingsSidebar({ projectId }: SettingsSidebarProps) {
     { name: "Integrations", id: "integrations", icon: Blocks },
     { name: "Security", id: "security", icon: Shield },
     { name: "Team", id: "team", icon: Users },
+    { name: "Logs", id: "logs", icon: ScrollText },
     { name: "Advanced", id: "advanced", icon: Sliders },
   ];
 
