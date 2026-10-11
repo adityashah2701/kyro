@@ -11,7 +11,8 @@
     "@kyro/storage": "*",
     "@types/http-proxy": "^1.17.17",
     "express": "^4.18.2",
-    "http-proxy": "^1.18.1"
+    "http-proxy": "^1.18.1",
+    "ioredis": "^5.11.1"
   },
   "devDependencies": {
     "@types/express": "^4.17.17",

@@ -10,6 +10,11 @@ const redisConfig = {
   maxRetriesPerRequest: null,
 };
 
+// One shared connection for history reads (a subscribed connection can't run LRANGE).
+const globalForRedis = globalThis as unknown as { __logReader?: IORedis };
+const getLogReader = () =>
+  (globalForRedis.__logReader ??= new IORedis(redisConfig));
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ deploymentId: string }> }
@@ -34,7 +39,13 @@ export async function GET(
     async start(controller) {
       // Function to send data
       const sendEvent = (data: string) => {
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
+        try {
+          controller.enqueue(
+            encoder.encode(`data: ${JSON.stringify(data)}\n\n`)
+          );
+        } catch {
+          // client already disconnected
+        }
       };
 
       // 1. If it's already completed, send existing logs if any and close
@@ -53,41 +64,63 @@ export async function GET(
         return;
       }
 
-      // 2. If it's active, subscribe to Redis channel
-      const redisClient = new IORedis(redisConfig);
+      // 2. In progress: replay what was logged before this viewer connected,
+      // then follow live. The worker numbers every chunk (`seq`), so history and
+      // live messages join without gaps or duplicates.
       const channel = `deployments:${deploymentId}:logs`;
+      const subscriber = new IORedis(redisConfig);
 
-      await redisClient.subscribe(channel);
+      let lastSeq = 0;
+      let replayed = false;
+      const early: { seq: number; message: string }[] = [];
+      const emit = ({ seq, message }: { seq: number; message: string }) => {
+        if (seq <= lastSeq) return;
+        lastSeq = seq;
+        sendEvent(message);
+      };
 
-      redisClient.on("message", (ch, message) => {
-        if (ch === channel) {
-          sendEvent(message);
+      subscriber.on("message", (ch, raw) => {
+        if (ch !== channel) return;
+        try {
+          const msg = JSON.parse(raw);
+          if (replayed) emit(msg);
+          else early.push(msg); // arrived while history was loading
+        } catch {
+          // ignore malformed messages
         }
       });
 
-      // Send initial connecting message or existing metadata logs if available
-      const metadata = deployment.metadata as Record<string, unknown> | null;
-      if (metadata && typeof metadata.buildLogs === "string") {
-        sendEvent(metadata.buildLogs);
-      } else {
-        sendEvent("Connecting to build logs...\n");
-      }
-
-      // Handle client disconnect
-      req.signal.addEventListener("abort", () => {
-        redisClient.unsubscribe(channel);
-        redisClient.quit();
-        controller.close();
-      });
-
-      // Optional: keep alive ping every 15s to avoid connection drop
       const pingInterval = setInterval(() => {
-        controller.enqueue(encoder.encode(":\n\n")); // SSE comment as ping
+        try {
+          controller.enqueue(encoder.encode(":\n\n")); // SSE comment as ping
+        } catch {
+          // stream already closed
+        }
       }, 15000);
 
-      req.signal.addEventListener("abort", () => {
+      const cleanup = () => {
         clearInterval(pingInterval);
-      });
+        subscriber.quit().catch(() => {});
+        try {
+          controller.close();
+        } catch {
+          // already closed
+        }
+      };
+      req.signal.addEventListener("abort", cleanup);
+
+      try {
+        // Subscribe first so nothing published during the history read is lost.
+        await subscriber.subscribe(channel);
+        const history = await getLogReader().lrange(`${channel}:history`, 0, -1);
+        if (history.length === 0) sendEvent("Connecting to build logs...\n");
+        history.forEach((message, i) => emit({ seq: i + 1, message }));
+        replayed = true;
+        early.forEach(emit);
+      } catch (err) {
+        console.error("Failed to stream deployment logs:", err);
+        cleanup();
+      }
     },
   });
 

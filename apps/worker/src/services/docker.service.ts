@@ -5,7 +5,7 @@ import { logger } from "../logger";
 import { DetectionResult } from "./detector.service";
 import fs from "fs/promises";
 import path from "path";
-import { redisClient } from "../redis";
+import { publishLog } from "../logs";
 
 const execFileAsync = promisify(execFile);
 
@@ -189,14 +189,14 @@ echo "[$(timestamp)] ✨ Build Finished successfully!"
         const str = data.toString();
         keep(str);
         logger.info({ deploymentId }, `[BUILD] ${str.trim()}`);
-        redisClient.publish(`deployments:${deploymentId}:logs`, str);
+        void publishLog(deploymentId, str);
       });
 
       dockerProcess.stderr.on("data", (data) => {
         const str = data.toString();
         keep(str);
         logger.info({ deploymentId }, `[BUILD] ${str.trim()}`);
-        redisClient.publish(`deployments:${deploymentId}:logs`, str);
+        void publishLog(deploymentId, str);
       });
 
       dockerProcess.on("error", (err) => {

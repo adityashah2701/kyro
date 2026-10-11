@@ -4,6 +4,7 @@ import { RunnerService } from "./services/runner.service";
 import { createStorageFromEnv } from "@kyro/storage";
 import path from "path";
 import httpProxy from "http-proxy";
+import IORedis from "ioredis";
 import { db, schema } from "@kyro/database";
 import {
   signUnlockCookie,
@@ -443,6 +444,22 @@ app.use(async (req, res, next) => {
     console.error(`[PROXY ERROR] Host: ${host} | Path: ${req.path}`, error);
     res.status(500).send("Internal Server Error");
   }
+});
+
+// The worker announces a newly activated deployment; start its server now so the
+// first visitor doesn't pay the cold start.
+const readySub = new IORedis({
+  host: process.env.REDIS_HOST || "localhost",
+  port: parseInt(process.env.REDIS_PORT || "6379", 10),
+  maxRetriesPerRequest: null,
+});
+readySub
+  .subscribe("deployments:ready")
+  .catch((err) => console.error("[Prewarm] subscribe failed:", err));
+readySub.on("message", (_channel, deploymentId) => {
+  RunnerService.prewarm(deploymentId).catch((err) =>
+    console.error(`[Prewarm] ${deploymentId} failed:`, err),
+  );
 });
 
 app.listen(PORT, () => {

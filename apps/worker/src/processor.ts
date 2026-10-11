@@ -11,6 +11,7 @@ import { DockerService } from "./services/docker.service";
 import { ArtifactService } from "./services/artifact.service";
 import { decrypt } from "./crypto/encryption";
 import { redisClient } from "./redis";
+import { publishLog, clearLogHistory } from "./logs";
 
 const getLogFilePath = (deploymentId: string) =>
   path.join(
@@ -25,7 +26,7 @@ const streamLog = async (deploymentId: string, message: string) => {
     const logPath = getLogFilePath(deploymentId);
     await fs.mkdir(path.dirname(logPath), { recursive: true });
     await fs.appendFile(logPath, formatted);
-    redisClient.publish(`deployments:${deploymentId}:logs`, formatted);
+    await publishLog(deploymentId, formatted);
   } catch (e) {}
 };
 
@@ -240,6 +241,7 @@ export const processDeploymentJob = async (job: Job<QueueJobData>) => {
       checksum,
       artifactLocation,
       storageProvider,
+      serveMode,
       metadata,
     } = await ArtifactService.collect(workspacePath, detection);
     await streamLog(
@@ -291,6 +293,13 @@ export const processDeploymentJob = async (job: Job<QueueJobData>) => {
           ),
         );
     }
+
+    // Tell the proxy to start the server now, so the first visitor doesn't hit a
+    // cold start. Static sites need no runtime.
+    if (isActive && serveMode === "server") {
+      await redisClient.publish("deployments:ready", deploymentId);
+      await streamLog(deploymentId, "🔥 Warming up the server...");
+    }
     await streamLog(
       deploymentId,
       `🎉 Deployment finished successfully! Preview: http://${previewUrl}`,
@@ -331,6 +340,8 @@ export const processDeploymentJob = async (job: Job<QueueJobData>) => {
     throw error;
   } finally {
     // 8. Cleanup
+    // Logs are saved on the deployment row by now; drop the live-replay copy.
+    await clearLogHistory(deploymentId);
     try {
       try {
         await fs.rm(workspacePath, { recursive: true, force: true });

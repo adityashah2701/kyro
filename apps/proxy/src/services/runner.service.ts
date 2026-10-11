@@ -4,6 +4,7 @@ import * as fs from "fs/promises";
 import { createWriteStream } from "fs";
 import * as http from "http";
 import { createStorageFromEnv } from "@kyro/storage";
+import { db, schema, eq } from "@kyro/database";
 
 /** Must match SERVER_BUNDLE_NAME in the worker's artifact.service.ts. */
 const SERVER_BUNDLE_NAME = "__server_bundle.tgz";
@@ -210,6 +211,37 @@ export class RunnerService {
     } finally {
       this.pendingStarts.delete(deploymentId);
     }
+  }
+
+  /**
+   * Starts the server for a freshly activated deployment before any visitor
+   * asks for it. No-op for static sites and non-active deployments (starting
+   * previews could evict the production instance from the LRU cache).
+   */
+  public static async prewarm(deploymentId: string): Promise<void> {
+    const dep = await db.query.deployment.findFirst({
+      where: eq(schema.deployment.id, deploymentId),
+    });
+    if (!dep?.active || dep.status !== "success" || !dep.artifactLocation) {
+      return;
+    }
+    const meta = dep.metadata as {
+      serveMode?: string;
+      nodeVersion?: string;
+    } | null;
+    if (meta?.serveMode !== "server") return;
+
+    const proj = await db.query.project.findFirst({
+      where: eq(schema.project.id, dep.projectId),
+    });
+    if (!proj?.startCommand) return;
+
+    await this.getInstance(
+      dep.id,
+      dep.artifactLocation,
+      proj.startCommand,
+      meta.nodeVersion || "20",
+    );
   }
 
   private static async _getInstance(
