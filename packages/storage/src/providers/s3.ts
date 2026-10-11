@@ -40,6 +40,14 @@ export interface StorageProvider {
    * @param filePath The file path in the storage bucket
    */
   objectExists(filePath: string): Promise<boolean>;
+
+  /**
+   * Deletes every object under a folder-like prefix (e.g. "deployments/<id>").
+   * The prefix is matched as a whole path segment, so "deployments/ab" never
+   * touches "deployments/abc". Returns how many objects were deleted.
+   * @param prefix The prefix (folder) in the storage bucket
+   */
+  removePrefix(prefix: string): Promise<number>;
 }
 
 export class S3StorageProvider implements StorageProvider {
@@ -156,6 +164,35 @@ export class S3StorageProvider implements StorageProvider {
         }
       });
     });
+  }
+
+  public async removePrefix(prefix: string): Promise<number> {
+    // Always match on a "/" boundary, and refuse anything that would be the
+    // whole bucket or a top-level folder by accident.
+    const folder = prefix.replace(/^\/+/, "").replace(/\/+$/, "");
+    if (!folder || folder.includes("..") || !folder.includes("/")) {
+      throw new Error(`Refusing to delete unsafe prefix "${prefix}".`);
+    }
+    const keyPrefix = `${folder}/`;
+
+    const names: string[] = [];
+    for await (const obj of this.client.listObjectsV2(
+      this.bucketName,
+      keyPrefix,
+      true,
+    )) {
+      if (obj.name) names.push(obj.name);
+    }
+    if (names.length === 0) return 0;
+
+    // removeObjects batches by 1000 and, in quiet mode, returns only failures.
+    const failures = await this.client.removeObjects(this.bucketName, names);
+    if (failures.length > 0) {
+      throw new Error(
+        `Failed to delete ${failures.length} of ${names.length} objects under "${keyPrefix}".`,
+      );
+    }
+    return names.length;
   }
 
   public async objectExists(filePath: string): Promise<boolean> {

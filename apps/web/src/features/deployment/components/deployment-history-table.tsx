@@ -158,6 +158,7 @@ export function DeploymentHistoryTable({
                   active: d.active,
                   previewUrl: d.previewUrl,
                   projectId: itemProjectId,
+                  pruned: (d.metadata as { pruned?: boolean } | undefined)?.pruned,
                 }}
               />
             </div>

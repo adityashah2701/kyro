@@ -16,6 +16,8 @@ type ActionableDeployment = {
   active: boolean | null;
   previewUrl: string | null;
   projectId: string;
+  /** Artifacts were deleted to free storage; rollback is impossible. */
+  pruned?: boolean;
 };
 
 import {
@@ -46,18 +48,22 @@ export function DeploymentActions({
 
   const canCancel = isPendingStatus(deployment.status);
   const canRetry = ["failed", "cancelled"].includes(deployment.status);
-  const canActivate = deployment.status === "success" && !deployment.active;
+  const canActivate =
+    deployment.status === "success" && !deployment.active && !deployment.pruned;
 
   const run = async (key: string, fn: () => Promise<unknown>, ok: string) => {
+    const toastId = toast.loading("Processing...");
     try {
       setProcessing(key);
-      const toastId = toast.loading("Processing...");
       await fn();
       toast.success(ok, { id: toastId });
       router.refresh();
     } catch (e) {
       console.error(e);
-      toast.error("Action failed. Please try again.");
+      toast.error(
+        e instanceof Error ? e.message : "Action failed. Please try again.",
+        { id: toastId }
+      );
     } finally {
       setProcessing(null);
     }
@@ -120,7 +126,10 @@ export function DeploymentActions({
                     `/api/deployments/${deployment.id}/activate`,
                     { method: "POST" }
                   );
-                  if (!res.ok) throw new Error("Failed to activate");
+                  if (!res.ok) {
+                    const body = await res.json().catch(() => null);
+                    throw new Error(body?.error ?? "Failed to activate");
+                  }
                 },
                 "Deployment activated."
               )

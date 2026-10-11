@@ -13,6 +13,9 @@ export type DeploymentMetadata = {
   serveMode?: string;
   logFile?: string;
   buildLogs?: string;
+  /** Set by the worker when the artifacts were deleted to free storage. */
+  pruned?: boolean;
+  prunedAt?: string;
 };
 
 /** In-progress statuses (a build is actively moving through the pipeline). */

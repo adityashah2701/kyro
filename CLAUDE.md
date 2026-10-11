@@ -64,6 +64,7 @@ Not all consumed vars are in `.env.example` / `config/env.ts`. In particular `EN
    - Decrypts the project's env vars for the target environment (`production` for default branch, else `preview`) and writes a `.env` into the workspace.
    - `DockerService` runs install + build inside `node:<version>-alpine` with CPU/memory caps, via a generated `.kyro-build.sh`.
    - `ArtifactService` collects the output dir, computes a checksum, and uploads to RustFS; sets `artifactLocation`, `previewUrl`, `checksum`, and marks the deployment `active` if it's the default branch (deactivating siblings).
+   - `RetentionService` (after success) deletes artifacts of old deployments beyond `KEEP_DEPLOYMENTS` (default 5, active one always kept; production and preview counted separately) and marks them `metadata.pruned` with `artifactLocation = null`. Pruned deployments can't be rolled back to (the activate route returns 410). A failed/cancelled build's partial upload is discarded, and deleting a project queues a `purge-artifacts` job that the worker handles.
    - `finally` always removes the temp workspace.
 3. **Serving** — `apps/proxy` `RoutingService.resolveHost` maps a hostname to an artifact: custom `domain` (if `verified`) → exact `previewUrl` match → project slug's `active` deployment. The proxy streams objects from RustFS with SPA (`index.html`) and `.html` extension fallbacks.
 

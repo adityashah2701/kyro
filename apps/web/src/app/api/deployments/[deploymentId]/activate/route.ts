@@ -33,6 +33,18 @@ export async function POST(
       );
     }
 
+    // Old deployments have their files removed to free storage (see
+    // RetentionService); there is nothing left to serve or roll back to.
+    if (!deployment.artifactLocation) {
+      return NextResponse.json(
+        {
+          error:
+            "This deployment's files were removed to free storage. Redeploy this commit instead.",
+        },
+        { status: 410 }
+      );
+    }
+
     // Mark all deployments for this project as inactive
     await db
       .update(schema.deployment)

@@ -1,8 +1,9 @@
 "use server";
 
 import { db } from "@kyro/database";
-import { project } from "@kyro/database/schema";
-import { eq, and } from "@kyro/database";
+import { project, deployment } from "@kyro/database/schema";
+import { eq, and, isNotNull } from "@kyro/database";
+import { deploymentQueue } from "@/features/deployment/queue/client";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
@@ -142,6 +143,20 @@ export async function deleteProject(id: string) {
       return { error: "Unauthorized" };
     }
 
+    // Deleting the project cascades its deployment rows, so read the artifact
+    // locations first (owner-scoped) to remove them from storage afterwards.
+    const owned = await db.query.project.findFirst({
+      where: and(eq(project.id, id), eq(project.userId, session.user.id)),
+      columns: { id: true },
+    });
+    if (!owned) {
+      return { error: "Project not found or unauthorized" };
+    }
+    const artifacts = await db.query.deployment.findMany({
+      where: and(eq(deployment.projectId, id), isNotNull(deployment.artifactLocation)),
+      columns: { artifactLocation: true },
+    });
+
     // Ensure they only delete their own project
     const [deleted] = await db
       .delete(project)
@@ -150,6 +165,19 @@ export async function deleteProject(id: string) {
 
     if (!deleted) {
       return { error: "Project not found or unauthorized" };
+    }
+
+    // The worker owns storage access. If this fails the project is still
+    // deleted; the files are orphaned until cleaned by hand.
+    const prefixes = artifacts.flatMap((a) =>
+      a.artifactLocation ? [a.artifactLocation] : []
+    );
+    if (prefixes.length > 0) {
+      try {
+        await deploymentQueue.add("purge-artifacts", { prefixes });
+      } catch (err) {
+        console.error("Failed to queue artifact purge:", err);
+      }
     }
 
     revalidatePath("/projects");

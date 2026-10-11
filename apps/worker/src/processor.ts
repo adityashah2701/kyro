@@ -12,6 +12,7 @@ import { ArtifactService } from "./services/artifact.service";
 import { decrypt } from "./crypto/encryption";
 import { redisClient } from "./redis";
 import { publishLog, clearLogHistory } from "./logs";
+import { RetentionService, KEEP_DEPLOYMENTS } from "./services/retention.service";
 
 const getLogFilePath = (deploymentId: string) =>
   path.join(
@@ -72,6 +73,9 @@ export const processDeploymentJob = async (job: Job<QueueJobData>) => {
     process.env.TEMP_DIRECTORY || "/tmp/deployments",
     deploymentId,
   );
+
+  // Once true, the artifacts are live and must never be discarded by the error path.
+  let succeeded = false;
 
   try {
     // 1. Initializing
@@ -279,6 +283,8 @@ export const processDeploymentJob = async (job: Job<QueueJobData>) => {
       activatedAt: isActive ? new Date() : null,
     });
 
+    succeeded = true;
+
     // Deactivate siblings only after our own success was recorded (it is skipped
     // if the deployment was cancelled meanwhile), so a cancel can't leave the
     // project with no active deployment.
@@ -292,6 +298,19 @@ export const processDeploymentJob = async (job: Job<QueueJobData>) => {
             ne(schema.deployment.id, deploymentId),
           ),
         );
+    }
+
+    // Free disk: drop artifacts of old deployments beyond the rollback window.
+    try {
+      const pruned = await RetentionService.prune(deploymentRecord.projectId);
+      if (pruned > 0) {
+        await streamLog(
+          deploymentId,
+          `🧹 Removed ${pruned} old deployment(s) beyond the last ${KEEP_DEPLOYMENTS}`,
+        );
+      }
+    } catch (err) {
+      logger.warn({ deploymentId, err }, "Retention pass failed");
     }
 
     // Tell the proxy to start the server now, so the first visitor doesn't hit a
@@ -337,6 +356,8 @@ export const processDeploymentJob = async (job: Job<QueueJobData>) => {
       completedAt: new Date(),
       metadata: finalMetadata,
     });
+    // A failed/cancelled build may have uploaded part of its artifacts.
+    if (!succeeded) await RetentionService.discard(deploymentId);
     throw error;
   } finally {
     // 8. Cleanup

@@ -2,20 +2,26 @@ import { Worker, Job } from "bullmq";
 import IORedis from "ioredis";
 import { logger } from "./logger";
 import { processDeploymentJob } from "./processor";
-import type { QueueJobData } from "@kyro/shared";
+import type { QueueJobData, PurgeJobData } from "@kyro/shared";
+import { RetentionService } from "./services/retention.service";
 
 import { redisConfig } from "./redis";
 
 logger.info("Starting Docker Build Worker...");
 
-const worker = new Worker<QueueJobData>(
+const worker = new Worker<QueueJobData | PurgeJobData>(
   "deployments",
-  async (job: Job<QueueJobData>) => {
+  async (job: Job<QueueJobData | PurgeJobData>) => {
+    if (job.name === "purge-artifacts") {
+      await RetentionService.purge((job.data as PurgeJobData).prefixes);
+      return;
+    }
+    const data = job.data as QueueJobData;
     logger.info(
-      { jobId: job.id, deploymentId: job.data.deploymentId },
+      { jobId: job.id, deploymentId: data.deploymentId },
       "Picked up deployment job",
     );
-    await processDeploymentJob(job);
+    await processDeploymentJob(job as Job<QueueJobData>);
   },
   {
     connection: redisConfig,

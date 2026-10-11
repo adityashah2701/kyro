@@ -12,6 +12,7 @@ type HeaderDeployment = {
   previewUrl: string | null;
   projectId: string;
   branch: string;
+  metadata?: unknown;
 };
 
 type HeaderProject = { id: string; name: string; slug: string } | null;
@@ -72,6 +73,7 @@ export function DeploymentDetailHeader({
             active: deployment.active,
             previewUrl: deployment.previewUrl,
             projectId: deployment.projectId,
+            pruned: (deployment.metadata as { pruned?: boolean } | null)?.pruned,
           }}
         />
       </div>
