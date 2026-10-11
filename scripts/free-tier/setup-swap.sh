@@ -2,7 +2,7 @@
 #
 # Create and enable a 4 GB swap file, and persist it across reboots.
 #
-# WHY: A Free-Tier instance has ~1 GB RAM. Postgres + Redis + MinIO + the three
+# WHY: A Free-Tier instance has ~1 GB RAM. Postgres + Redis + RustFS + the three
 # Node processes + the Docker daemon already sit close to that ceiling. A real
 # `next build` inside the build container spikes to several hundred MB more.
 # Without swap the Linux OOM killer terminates whatever it decides is largest

@@ -95,7 +95,7 @@ mkdir -p /home/ubuntu/kyro-runners
 
 ### Start Database Services
 
-We use Docker for the background services (Redis, MinIO, PostgreSQL).
+We use Docker for the background services (Redis, RustFS, PostgreSQL).
 
 > [!WARNING]
 > If you get a **"permission denied while trying to connect to the Docker daemon socket"** error, it means the `docker` group hasn't been applied to your current session yet. Run `newgrp docker` to apply it immediately, or prefix the command below with `sudo`.

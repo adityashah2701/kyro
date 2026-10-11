@@ -78,7 +78,7 @@ services:
       - "--appendonly"
       - "no"
 
-  minio:
+  rustfs:
     restart: unless-stopped
     # Bind BOTH ports to loopback only.
     ports:

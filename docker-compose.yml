@@ -39,18 +39,25 @@ services:
       - "--appendonly"
       - "no"
 
-  minio:
-    image: minio/minio:latest
+  # S3-compatible object storage (replaces MinIO, whose images are no longer
+  # published). Pinned: do not use :latest, a surprise upgrade can break storage.
+  # Runs as uid 10001; a named volume needs no chown (a host bind mount would).
+  rustfs:
+    image: rustfs/rustfs:1.0.1
     restart: unless-stopped
     environment:
-      MINIO_ROOT_USER: kyro_admin
-      MINIO_ROOT_PASSWORD: kyro_password
+      RUSTFS_ACCESS_KEY: ${S3_ACCESS_KEY:-kyro_admin}
+      RUSTFS_SECRET_KEY: ${S3_SECRET_KEY:-kyro_password}
+      RUSTFS_ADDRESS: ":9000"
+      RUSTFS_CONSOLE_ADDRESS: ":9001"
+      RUSTFS_CONSOLE_ENABLE: "true"
+      RUSTFS_OBS_LOGGER_LEVEL: error
     volumes:
-      - minio_data:/data
+      - rustfs_data:/data
     mem_limit: 256m
-    command: server /data --console-address ":9001"
+    command: /data
 
 volumes:
   postgres_data:
   redis_data:
-  minio_data:
+  rustfs_data:

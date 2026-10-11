@@ -4,14 +4,66 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@kyro/database";
 import {
+  account,
   githubAccount,
   projectRepository,
   project,
 } from "@kyro/database/schema";
-import { eq } from "@kyro/database";
+import { and, eq } from "@kyro/database";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { getInstallationOctokit, hasGitHubConfig } from "./github-client";
+
+/**
+ * Proves the signed-in user owns a GitHub App installation. Installation ids are
+ * sequential, so without this anyone could claim someone else's installation
+ * and list their private repos.
+ */
+async function assertInstallationOwnedBy(
+  userId: string,
+  installationId: string,
+  installationAccount: { id?: number; type?: string } | null,
+) {
+  const ghAccount = await db.query.account.findFirst({
+    where: and(eq(account.userId, userId), eq(account.providerId, "github")),
+  });
+
+  // Personal installation: its account id is the user's GitHub id.
+  if (
+    installationAccount?.type === "User" &&
+    ghAccount &&
+    String(installationAccount.id) === ghAccount.accountId
+  ) {
+    return;
+  }
+
+  // Organisation installation: ask GitHub which installations the user can see.
+  try {
+    const { accessToken } = await auth.api.getAccessToken({
+      body: { providerId: "github" },
+      headers: await headers(),
+    });
+    const res = await fetch(
+      "https://api.github.com/user/installations?per_page=100",
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          Accept: "application/vnd.github+json",
+        },
+      },
+    );
+    if (res.ok) {
+      const body = (await res.json()) as { installations?: { id: number }[] };
+      if (body.installations?.some((i) => String(i.id) === installationId)) {
+        return;
+      }
+    }
+  } catch (e) {
+    console.error("Failed to verify GitHub installation ownership", e);
+  }
+
+  throw new Error("You do not have access to this GitHub installation.");
+}
 
 export async function connectGitHub(installationId: string) {
   const session = await auth.api.getSession({
@@ -41,19 +93,25 @@ export async function connectGitHub(installationId: string) {
 
     if (hasGitHubConfig) {
       const octokit = await getInstallationOctokit(installationId);
-      if (octokit) {
-        try {
-          const { data } = await octokit.rest.apps.getInstallation({
-            installation_id: parseInt(installationId, 10),
-          });
-          const account = data.account as any;
-          username = account?.login || username;
-          avatar = account?.avatar_url || null;
-          githubUserId = account?.id?.toString() || null;
-        } catch (e) {
-          console.error("Failed to fetch installation details", e);
-        }
+      if (!octokit) throw new Error("GitHub App is not configured.");
+      let installationAccount: any = null;
+      try {
+        const { data } = await octokit.rest.apps.getInstallation({
+          installation_id: parseInt(installationId, 10),
+        });
+        installationAccount = data.account;
+      } catch (e) {
+        console.error("Failed to fetch installation details", e);
+        throw new Error("Could not read this GitHub installation.");
       }
+      await assertInstallationOwnedBy(
+        session.user.id,
+        installationId,
+        installationAccount,
+      );
+      username = installationAccount?.login || username;
+      avatar = installationAccount?.avatar_url || null;
+      githubUserId = installationAccount?.id?.toString() || null;
     }
 
     await db.insert(githubAccount).values({
@@ -201,6 +259,27 @@ export async function linkRepositoryToProject(
 
   if (!projectData || projectData.userId !== session.user.id) {
     throw new Error("Project not found or unauthorized");
+  }
+
+  // The browser sends the repo object, so never trust it: re-read it from GitHub
+  // with this user's installation (clone_url, id and privacy all come from there).
+  const ghAccount = await db.query.githubAccount.findFirst({
+    where: eq(githubAccount.userId, session.user.id),
+  });
+  if (!ghAccount) throw new Error("GitHub not connected");
+
+  if (hasGitHubConfig) {
+    const octokit = await getInstallationOctokit(ghAccount.installationId);
+    if (!octokit) throw new Error("Failed to initialize Octokit");
+    try {
+      const { data } = await octokit.rest.repos.get({
+        owner: repo.owner.login,
+        repo: repo.name,
+      });
+      repo = data as any;
+    } catch {
+      throw new Error("Repository not accessible from your GitHub installation");
+    }
   }
 
   await db

@@ -1,4 +1,5 @@
-import { Client as MinioClient } from "minio";
+// The `minio` npm package is a generic S3 client; it works with any S3 server (RustFS, ...).
+import { Client as S3Client } from "minio";
 import * as fs from "fs/promises";
 import * as path from "path";
 import * as mime from "mime-types";
@@ -41,8 +42,8 @@ export interface StorageProvider {
   objectExists(filePath: string): Promise<boolean>;
 }
 
-export class MinioStorageProvider implements StorageProvider {
-  private client: MinioClient;
+export class S3StorageProvider implements StorageProvider {
+  private client: S3Client;
   private bucketName: string;
 
   constructor(
@@ -55,7 +56,7 @@ export class MinioStorageProvider implements StorageProvider {
     },
     bucketName: string,
   ) {
-    this.client = new MinioClient(config);
+    this.client = new S3Client(config);
     this.bucketName = bucketName;
   }
 
@@ -188,4 +189,24 @@ export class MinioStorageProvider implements StorageProvider {
       throw error;
     }
   }
+}
+
+/**
+ * Builds the provider from S3_* env vars. The old MINIO_* names still work as a
+ * fallback so existing .env files keep running.
+ */
+export function createStorageFromEnv(
+  env: Record<string, string | undefined> = process.env,
+): S3StorageProvider {
+  const get = (name: string) => env[`S3_${name}`] ?? env[`MINIO_${name}`];
+  return new S3StorageProvider(
+    {
+      endPoint: get("ENDPOINT") || "localhost",
+      port: parseInt(get("PORT") || "9000", 10),
+      useSSL: get("USE_SSL") === "true",
+      accessKey: get("ACCESS_KEY") || "kyro_admin",
+      secretKey: get("SECRET_KEY") || "kyro_password",
+    },
+    get("BUCKET") || "kyro-deployments",
+  );
 }

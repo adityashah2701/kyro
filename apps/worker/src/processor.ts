@@ -1,6 +1,6 @@
-import { Job } from "bullmq";
+import { Job, UnrecoverableError } from "bullmq";
 import { logger } from "./logger";
-import { db, schema, eq, and } from "@kyro/database";
+import { db, schema, eq, and, ne } from "@kyro/database";
 import type { QueueJobData, DeploymentStatus } from "@kyro/shared";
 import fs from "fs/promises";
 import path from "path";
@@ -29,16 +29,38 @@ const streamLog = async (deploymentId: string, message: string) => {
   } catch (e) {}
 };
 
+/**
+ * Never overwrites "cancelled". If the deployment was cancelled, throws a
+ * non-retryable error so the pipeline stops at the next stage boundary.
+ */
 const updateStatus = async (
   deploymentId: string,
   status: DeploymentStatus,
   extra?: any,
 ) => {
   logger.info({ deploymentId, status }, "Updating deployment status");
-  await db
+  const updated = await db
     .update(schema.deployment)
     .set({ status, updatedAt: new Date(), ...extra })
-    .where(eq(schema.deployment.id, deploymentId));
+    .where(
+      and(
+        eq(schema.deployment.id, deploymentId),
+        ne(schema.deployment.status, "cancelled"),
+      ),
+    )
+    .returning({ id: schema.deployment.id });
+
+  if (updated.length === 0 && status !== "failed") {
+    throw new UnrecoverableError(`Deployment ${deploymentId} was cancelled`);
+  }
+};
+
+const isCancelled = async (deploymentId: string) => {
+  const row = await db.query.deployment.findFirst({
+    where: eq(schema.deployment.id, deploymentId),
+    columns: { status: true },
+  });
+  return row?.status === "cancelled";
 };
 
 export const processDeploymentJob = async (job: Job<QueueJobData>) => {
@@ -203,6 +225,10 @@ export const processDeploymentJob = async (job: Job<QueueJobData>) => {
       workspacePath,
       detection,
       getLogFilePath(deploymentId),
+      {
+        timeoutMinutes: projectRecord.buildTimeout,
+        isCancelled: () => isCancelled(deploymentId),
+      },
     );
 
     // 6. Collecting Artifacts
@@ -227,14 +253,6 @@ export const processDeploymentJob = async (job: Job<QueueJobData>) => {
     const previewUrl = `${deploymentRecord.projectId}-${hash}.${baseDomain}`;
     const isActive = deploymentRecord.branch === repoRecord.defaultBranch;
 
-    // If making active, deactivate others
-    if (isActive) {
-      await db
-        .update(schema.deployment)
-        .set({ active: false })
-        .where(eq(schema.deployment.projectId, deploymentRecord.projectId));
-    }
-
     // Try to read build logs
     let buildLogs = "";
     try {
@@ -258,6 +276,21 @@ export const processDeploymentJob = async (job: Job<QueueJobData>) => {
       active: isActive,
       activatedAt: isActive ? new Date() : null,
     });
+
+    // Deactivate siblings only after our own success was recorded (it is skipped
+    // if the deployment was cancelled meanwhile), so a cancel can't leave the
+    // project with no active deployment.
+    if (isActive) {
+      await db
+        .update(schema.deployment)
+        .set({ active: false })
+        .where(
+          and(
+            eq(schema.deployment.projectId, deploymentRecord.projectId),
+            ne(schema.deployment.id, deploymentId),
+          ),
+        );
+    }
     await streamLog(
       deploymentId,
       `🎉 Deployment finished successfully! Preview: http://${previewUrl}`,

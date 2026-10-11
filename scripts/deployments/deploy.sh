@@ -14,7 +14,7 @@ COMPOSE_FILES="${COMPOSE_FILES:--f docker-compose.yml -f docker-compose.freetier
 PM2_CONFIG="${PM2_CONFIG:-ecosystem.config.js}"
 DB_CONTAINER="${DB_CONTAINER:-kyro-postgres-1}"
 REDIS_CONTAINER="${REDIS_CONTAINER:-kyro-redis-1}"
-MINIO_CONTAINER="${MINIO_CONTAINER:-kyro-minio-1}"
+STORAGE_CONTAINER="${STORAGE_CONTAINER:-kyro-rustfs-1}"
 HEALTH_TIMEOUT="${HEALTH_TIMEOUT:-60}"
 RETRY_INTERVAL="${RETRY_INTERVAL:-2}"
 START_TIME=$(date +%s)
@@ -75,9 +75,10 @@ if [ ! -f ".env" ]; then
     error "Missing .env file. Run setup.sh or create it manually."
 fi
 missing=()
-required_vars=("DATABASE_URL" "BETTER_AUTH_SECRET" "REDIS_HOST" "MINIO_ACCESS_KEY" "MINIO_SECRET_KEY" "MINIO_ENDPOINT" "GITHUB_APP_ID" "GITHUB_APP_PRIVATE_KEY" "ENCRYPTION_KEY" "BASE_DOMAIN")
+required_vars=("DATABASE_URL" "BETTER_AUTH_SECRET" "REDIS_HOST" "S3_ACCESS_KEY" "S3_SECRET_KEY" "S3_ENDPOINT" "GITHUB_APP_ID" "GITHUB_APP_PRIVATE_KEY" "ENCRYPTION_KEY" "BASE_DOMAIN")
 for var in "${required_vars[@]}"; do
-    if ! grep -q "^${var}=" .env; then
+    # accept the legacy MINIO_* name for S3_* vars
+    if ! grep -qE "^(${var}|${var/S3_/MINIO_})=" .env; then
         missing+=("$var")
     fi
 done
@@ -135,17 +136,17 @@ done
 [ "$redis_ready" = true ] || { sudo docker logs "$REDIS_CONTAINER" --tail 20; error "Redis failed to boot."; }
 success "Redis is healthy."
 
-info "Waiting for MinIO..."
-minio_ready=false
+info "Waiting for object storage (RustFS)..."
+storage_ready=false
 for _ in $(seq 1 "$HEALTH_TIMEOUT"); do
-    if curl -sSf http://127.0.0.1:9000/minio/health/live > /dev/null 2>&1; then
-        minio_ready=true
+    if curl -sSf http://127.0.0.1:9000/health > /dev/null 2>&1; then
+        storage_ready=true
         break
     fi
     sleep "$RETRY_INTERVAL"
 done
-[ "$minio_ready" = true ] || { sudo docker logs "$MINIO_CONTAINER" --tail 20; error "MinIO failed to boot."; }
-success "MinIO is healthy."
+[ "$storage_ready" = true ] || { sudo docker logs "$STORAGE_CONTAINER" --tail 20; error "RustFS failed to boot."; }
+success "RustFS is healthy."
 
 step "Database Migration"
 info "Pushing Drizzle schema..."
@@ -251,10 +252,10 @@ for p in "PostgreSQL|$DB_CONTAINER|pg_isready -U kyro" \
     fi
 done
 
-if curl -sSf http://127.0.0.1:9000/minio/health/live > /dev/null 2>&1; then
-    printf "%-30s ${GREEN}%-15s${NC}\n" "MinIO" "PASS"
+if curl -sSf http://127.0.0.1:9000/health > /dev/null 2>&1; then
+    printf "%-30s ${GREEN}%-15s${NC}\n" "RustFS" "PASS"
 else
-    printf "%-30s ${RED}%-15s${NC}\n" "MinIO" "FAIL"
+    printf "%-30s ${RED}%-15s${NC}\n" "RustFS" "FAIL"
     failed=1
 fi
 

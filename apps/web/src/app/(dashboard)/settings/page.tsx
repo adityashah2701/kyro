@@ -70,6 +70,7 @@ export default async function SettingsPage(props: {
     });
 
     if (!projectData) notFound();
+    projectData.passwordProtectionPassword = null; // the hash never leaves the server
 
     const projectRepo = await db.query.projectRepository.findFirst({
       where: eq(projectRepository.projectId, projectId),

@@ -213,7 +213,7 @@ The backend infrastructure is orchestrated via `docker-compose.yml`.
 - Configured strictly as a queue backend.
 - Critical setting: `--maxmemory-policy noeviction`. If Redis runs out of memory, it will refuse new writes rather than evicting pending deployment jobs. This guarantees that a user's deployment is never randomly dropped.
 
-### 6.3 MinIO (`minio/minio:latest`)
+### 6.3 RustFS (`rustfs/rustfs`, pinned)
 
 - Acts as a local Amazon S3 clone. It stores the artifacts securely. The Proxy streams from it, and the Worker uploads to it. It exposes a web UI on port 9001 for administrators to inspect stored artifacts.
 

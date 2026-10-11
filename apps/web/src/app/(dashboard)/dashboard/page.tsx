@@ -54,6 +54,7 @@ export default async function DashboardPage(props: {
     if (!projectData) {
       notFound();
     }
+    projectData.passwordProtectionPassword = null; // the hash never leaves the server
 
     const deployments = await getProjectDeployments(projectId);
     const deploymentDataList = deployments.map((d) => ({

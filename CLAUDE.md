@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Kyro is a self-hosted deployment platform (Vercel/Netlify-style): connect a GitHub repo, and Kyro clones it, detects the framework, builds it inside an isolated Docker container, stores the static artifact in MinIO, and serves it on a subdomain via a reverse proxy. Custom domains, encrypted environment variables, and per-deployment activation are supported.
+Kyro is a self-hosted deployment platform (Vercel/Netlify-style): connect a GitHub repo, and Kyro clones it, detects the framework, builds it inside an isolated Docker container, stores the static artifact in RustFS, and serves it on a subdomain via a reverse proxy. Custom domains, encrypted environment variables, and per-deployment activation are supported.
 
 ## Monorepo layout
 
@@ -12,9 +12,9 @@ npm workspaces (`apps/*`, `packages/*`). Three runnable apps plus three shared l
 
 - **`apps/web`** (`@kyro/web`) — Next.js 16 (App Router, React 19) dashboard + API. Owns auth, all user-facing UI, server actions, and enqueues deployment jobs.
 - **`apps/worker`** (`@kyro/worker`) — standalone Node/tsx BullMQ consumer. Runs the actual build pipeline (clone → detect → docker build → collect artifact → upload). No HTTP server.
-- **`apps/proxy`** (`@kyro/proxy`) — plain Express server that resolves an incoming `Host` header to a deployment and streams files out of MinIO. This is what actually serves deployed sites.
+- **`apps/proxy`** (`@kyro/proxy`) — plain Express server that resolves an incoming `Host` header to a deployment and streams files out of RustFS. This is what actually serves deployed sites.
 - **`packages/database`** (`@kyro/database`) — Drizzle ORM schema + `db` client. `src/schema.ts` is the single source of truth for all tables; imported by all three apps.
-- **`packages/storage`** (`@kyro/storage`) — `MinioStorageProvider` (upload/download/stream). Used by worker (upload) and proxy (download).
+- **`packages/storage`** (`@kyro/storage`) — `S3StorageProvider` (upload/download/stream). Used by worker (upload) and proxy (download).
 - **`packages/shared`** (`@kyro/shared`) — shared TypeScript types only (`DeploymentStatus`, `QueueJobData`). Keep the `DeploymentStatus` union here in sync with the `status` comment in the `deployment` table.
 
 The three apps communicate **only** through Postgres (shared schema) and the Redis/BullMQ `"deployments"` queue — there are no direct HTTP calls between them.
@@ -23,7 +23,7 @@ The three apps communicate **only** through Postgres (shared schema) and the Red
 
 ```bash
 npm run dev            # starts everything via mprocs (see mprocs.yaml): docker, web, worker, proxy, ngrok
-docker compose up      # Postgres (5432), Redis (6379), MinIO (9000 / console 9001) — required for anything to work
+docker compose up      # Postgres (5432), Redis (6379), RustFS (9000 / console 9001) — required for anything to work
 ```
 
 Per-app (run from repo root):
@@ -51,6 +51,8 @@ There is no test suite. Pre-commit runs `lint-staged` (husky): ESLint `--fix` on
 
 A single root `.env` is loaded by every app (`dotenv -e ../../.env` / `DOTENV_CONFIG_PATH=../../.env`). `.env.example` documents most keys. `apps/web/src/config/env.ts` validates a subset with Zod at boot and **throws** on missing vars — add new required web vars there.
 
+Object storage config is read via `createStorageFromEnv()` (`packages/storage`): `S3_ENDPOINT/PORT/USE_SSL/ACCESS_KEY/SECRET_KEY/BUCKET`, falling back to the legacy `MINIO_*` names. The server is RustFS (S3-compatible, image pinned in `docker-compose.yml`); the `minio` npm package is only used as a generic S3 client.
+
 Not all consumed vars are in `.env.example` / `config/env.ts`. In particular `ENCRYPTION_KEY` (64-char hex = 32 bytes) is required by both web and worker for env-var encryption but is not in the example file. When adding env usage, check whether it needs to be added to the Zod schema.
 
 ## Deployment pipeline (the core flow)
@@ -61,9 +63,9 @@ Not all consumed vars are in `.env.example` / `config/env.ts`. In particular `EN
    - `DetectorService` inspects `package.json` / lockfiles to determine framework, package manager, node version, install/build commands, and output dir.
    - Decrypts the project's env vars for the target environment (`production` for default branch, else `preview`) and writes a `.env` into the workspace.
    - `DockerService` runs install + build inside `node:<version>-alpine` with CPU/memory caps, via a generated `.kyro-build.sh`.
-   - `ArtifactService` collects the output dir, computes a checksum, and uploads to MinIO; sets `artifactLocation`, `previewUrl`, `checksum`, and marks the deployment `active` if it's the default branch (deactivating siblings).
+   - `ArtifactService` collects the output dir, computes a checksum, and uploads to RustFS; sets `artifactLocation`, `previewUrl`, `checksum`, and marks the deployment `active` if it's the default branch (deactivating siblings).
    - `finally` always removes the temp workspace.
-3. **Serving** — `apps/proxy` `RoutingService.resolveHost` maps a hostname to an artifact: custom `domain` (if `verified`) → exact `previewUrl` match → project slug's `active` deployment. The proxy streams objects from MinIO with SPA (`index.html`) and `.html` extension fallbacks.
+3. **Serving** — `apps/proxy` `RoutingService.resolveHost` maps a hostname to an artifact: custom `domain` (if `verified`) → exact `previewUrl` match → project slug's `active` deployment. The proxy streams objects from RustFS with SPA (`index.html`) and `.html` extension fallbacks.
 
 Deployment status is defined in two places that must agree: the `DeploymentStatus` union in `packages/shared/index.ts` and the inline comment on `deployment.status` in the schema.
 

@@ -7,6 +7,7 @@
   },
   "dependencies": {
     "@kyro/database": "*",
+    "@kyro/shared": "*",
     "@kyro/storage": "*",
     "@types/http-proxy": "^1.17.17",
     "express": "^4.18.2",

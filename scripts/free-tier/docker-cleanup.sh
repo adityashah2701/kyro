@@ -6,7 +6,7 @@
 # stopped runner containers and dangling images pile up. On a ~20 GB disk this
 # fills the volume within days of active use and then builds fail with ENOSPC.
 #
-# SAFETY: this NEVER touches volumes, so Postgres / Redis / MinIO data is safe.
+# SAFETY: this NEVER touches volumes, so Postgres / Redis / RustFS data is safe.
 # It only removes stopped containers, unused images, and old build cache.
 #
 # WHEN TO RUN:

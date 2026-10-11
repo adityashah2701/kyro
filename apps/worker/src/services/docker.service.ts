@@ -1,4 +1,5 @@
 import { spawn, execFile } from "child_process";
+import { UnrecoverableError } from "bullmq";
 import { promisify } from "util";
 import { logger } from "../logger";
 import { DetectionResult } from "./detector.service";
@@ -60,6 +61,7 @@ export class DockerService {
     workspacePath: string,
     detection: DetectionResult,
     logFilePath: string,
+    opts: { timeoutMinutes: number; isCancelled: () => Promise<boolean> },
   ): Promise<void> {
     const maxMemory = process.env.MAX_MEMORY || "1g";
     const maxCpu = process.env.MAX_CPU || "1.0";
@@ -126,9 +128,16 @@ echo "[$(timestamp)] ✨ Build Finished successfully!"
 
     await fs.writeFile(buildScriptPath, scriptContent, { mode: 0o755 });
 
+    // Named so a timeout / cancel can kill the container, and a stale one left by
+    // a crashed worker doesn't make `docker run` fail with a name clash.
+    const containerName = `kyro-build-${deploymentId}`;
+    await execFileAsync("docker", ["rm", "-f", containerName]).catch(() => {});
+
     const dockerArgs = [
       "run",
       "--rm",
+      "--name",
+      containerName,
       `--memory=${maxMemory}`,
       ...(maxMemorySwap ? [`--memory-swap=${maxMemorySwap}`] : []),
       `--cpus=${maxCpu}`,
@@ -147,26 +156,66 @@ echo "[$(timestamp)] ✨ Build Finished successfully!"
       const dockerProcess = spawn("docker", dockerArgs);
 
       let buildOutput = "";
+      let stopReason: string | null = null;
+
+      const stop = (reason: string) => {
+        if (stopReason) return;
+        stopReason = reason;
+        logger.warn({ deploymentId, reason }, "Stopping build container");
+        execFileAsync("docker", ["rm", "-f", containerName]).catch(() => {});
+      };
+
+      const timeout = setTimeout(
+        () => stop(`Build timed out after ${opts.timeoutMinutes} minutes`),
+        opts.timeoutMinutes * 60_000,
+      );
+      // Poll the DB so "Cancel" actually stops a running build.
+      const cancelPoll = setInterval(async () => {
+        if (await opts.isCancelled().catch(() => false)) {
+          stop("Deployment cancelled");
+        }
+      }, 5_000);
+
+      // Keep only the tail: a chatty build must not grow worker memory forever.
+      const MAX_OUTPUT = 5 * 1024 * 1024;
+      const keep = (str: string) => {
+        buildOutput += str;
+        if (buildOutput.length > MAX_OUTPUT) {
+          buildOutput = buildOutput.slice(-MAX_OUTPUT);
+        }
+      };
 
       dockerProcess.stdout.on("data", (data) => {
         const str = data.toString();
-        buildOutput += str;
+        keep(str);
         logger.info({ deploymentId }, `[BUILD] ${str.trim()}`);
         redisClient.publish(`deployments:${deploymentId}:logs`, str);
       });
 
       dockerProcess.stderr.on("data", (data) => {
         const str = data.toString();
-        buildOutput += str;
+        keep(str);
         logger.info({ deploymentId }, `[BUILD] ${str.trim()}`);
         redisClient.publish(`deployments:${deploymentId}:logs`, str);
       });
 
-      dockerProcess.on("close", async (code) => {
-        // Save logs to a file in the workspace
-        await fs.appendFile(logFilePath, buildOutput);
+      dockerProcess.on("error", (err) => {
+        clearTimeout(timeout);
+        clearInterval(cancelPoll);
+        reject(err);
+      });
 
-        if (code === 0) {
+      dockerProcess.on("close", async (code) => {
+        clearTimeout(timeout);
+        clearInterval(cancelPoll);
+
+        // Save logs to a file in the workspace
+        await fs.appendFile(logFilePath, buildOutput).catch(() => {});
+
+        if (stopReason) {
+          // Not retryable: a timed-out or cancelled build must not run again.
+          reject(new UnrecoverableError(stopReason));
+        } else if (code === 0) {
           logger.info({ deploymentId }, "Docker container exited successfully");
           resolve();
         } else {

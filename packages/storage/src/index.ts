@@ -1,1 +1,1 @@
-export * from "./providers/minio";
+export * from "./providers/s3";

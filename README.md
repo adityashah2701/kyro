@@ -37,14 +37,14 @@ Kyro is a modern, self-hosted Platform as a Service (PaaS) designed to automate 
 - **Isolated Builds:** Uses Docker to build projects in a sandboxed, consistent environment.
 - **Static & Dynamic Hosting:** Intelligently detects if a deployment is static (has `index.html`) or requires Server-Side Rendering (SSR).
 - **Custom Domains:** Proxy service dynamically routes requests based on Host headers using database lookups.
-- **S3 Compatible Storage:** All build artifacts are securely stored in MinIO.
+- **S3 Compatible Storage:** All build artifacts are securely stored in RustFS.
 - **Background Jobs:** Robust queueing system using BullMQ and Redis ensures builds don't block the main API.
 
 ---
 
 ## 🏗 Architecture Deep-Dive
 
-Kyro relies on a microservices-based monorepo architecture, leveraging BullMQ for task processing, MinIO for artifact storage, and a dynamic reverse proxy for request routing.
+Kyro relies on a microservices-based monorepo architecture, leveraging BullMQ for task processing, RustFS for artifact storage, and a dynamic reverse proxy for request routing.
 
 <div align="center">
   <img src="https://mermaid.ink/svg/Zmxvd2NoYXJ0IFRECiAgICBzdWJncmFwaCBVc2VycwogICAgICAgIERldltEZXZlbG9wZXJdCiAgICAgICAgVmlzW1Zpc2l0b3JdCiAgICBlbmQKCiAgICBzdWJncmFwaCAiS3lybyBQYWFTIgogICAgICAgIFdlYkFwcFtXZWIgQXBwIFVJICYgQVBJXQogICAgICAgIFByb3h5W1Byb3h5IFNlcnZpY2VdCiAgICAgICAgV29ya2VyW1dvcmtlciBTZXJ2aWNlXQogICAgZW5kCgogICAgc3ViZ3JhcGggSW5mcmFzdHJ1Y3R1cmUKICAgICAgICBEQlsoUG9zdGdyZVNRTCldCiAgICAgICAgUmVkaXNbKFJlZGlzIFF1ZXVlKV0KICAgICAgICBTdG9yYWdlWyhNaW5JTyBTdG9yYWdlKV0KICAgICAgICBSdW5uZXJbTm9kZSBTU1IgUnVubmVyXQogICAgZW5kCgogICAgRGV2IC0tICIxLiBQdXNoIENvZGUiIC0tPiBXZWJBcHAKICAgIFdlYkFwcCAtLSAiMi4gQ3JlYXRlIEpvYiIgLS0+IFJlZGlzCiAgICBXZWJBcHAgLS0gIlJlYWQvV3JpdGUiIC0tPiBEQgogICAgCiAgICBXb3JrZXIgLS0gIjMuIFB1bGwgSm9iIiAtLT4gUmVkaXMKICAgIFdvcmtlciAtLSAiNC4gQnVpbGQiIC0tPiBXb3JrZXIKICAgIFdvcmtlciAtLSAiNS4gVXBsb2FkIiAtLT4gU3RvcmFnZQogICAgV29ya2VyIC0tICJVcGRhdGUgU3RhdHVzIiAtLT4gREIKCiAgICBWaXMgLS0gIjYuIFJlcXVlc3QgU2l0ZSIgLS0+IFByb3h5CiAgICBQcm94eSAtLSAiTG9va3VwIiAtLT4gREIKICAgIFByb3h5IC0tICJTZXJ2ZSBTdGF0aWMiIC0tPiBTdG9yYWdlCiAgICBQcm94eSAtLSAiU2VydmUgRHluYW1pYyIgLS0+IFJ1bm5lcg==" alt="Architecture Diagram" />
@@ -55,9 +55,9 @@ Kyro relies on a microservices-based monorepo architecture, leveraging BullMQ fo
 1. **Trigger:** A user connects their GitHub repository via the Web App and triggers a deployment.
 2. **Queueing:** The Web App creates a deployment record in PostgreSQL and pushes a job to the Redis queue via BullMQ.
 3. **Processing:** The Worker Service picks up the job. It uses Docker to spin up an ephemeral build container, clones the code, and runs the build command (e.g., `npm run build`).
-4. **Storage:** Once built, the artifact files are streamed and uploaded to MinIO storage. The Worker updates the job status to "Completed" in PostgreSQL.
+4. **Storage:** Once built, the artifact files are streamed and uploaded to RustFS storage. The Worker updates the job status to "Completed" in PostgreSQL.
 5. **Routing Traffic:** When a visitor hits a Kyro-managed domain, the Proxy Service checks PostgreSQL for the active deployment ID.
-   - If static files exist (like `index.html`), it streams them directly from MinIO.
+   - If static files exist (like `index.html`), it streams them directly from RustFS.
    - If it's a dynamic server (SSR), the Proxy spins up a local Node runner dynamically and proxies traffic to it.
 
 ---
@@ -82,12 +82,12 @@ This is a monolithic repository powered by NPM Workspaces, structured into indep
 
 - **Location:** `apps/proxy/`
 - **Role:** The edge reverse proxy built with **Express** and `http-proxy`. It listens to incoming web traffic, resolves the requested host, and decides how to serve the deployment. It includes a `RunnerService` that can dynamically start backend Node servers for SSR deployments.
-- **Key Dependencies:** Express, http-proxy, MinIO SDK.
+- **Key Dependencies:** Express, http-proxy, S3 client (`minio` npm package).
 
 ### 4. Shared Packages
 
 - **`@kyro/database`:** Located in `packages/database/`. Houses the PostgreSQL schemas, Drizzle ORM client, and migration scripts. Ensures that all microservices use the exact same database types and queries.
-- **`@kyro/storage`:** Located in `packages/storage/`. A unified wrapper around MinIO to handle file uploads, downloads, and stream piping across the proxy and worker.
+- **`@kyro/storage`:** Located in `packages/storage/`. A unified wrapper around an S3-compatible store (RustFS) to handle file uploads, downloads, and stream piping across the proxy and worker.
 - **`@kyro/shared`:** Located in `packages/shared/`. Contains shared TypeScript interfaces, constants, and utilities used universally across the monorepo.
 
 ---
@@ -98,7 +98,7 @@ This is a monolithic repository powered by NPM Workspaces, structured into indep
 - **Background Worker:** Node.js, BullMQ, simple-git, Docker (for isolated builds)
 - **Routing Proxy:** Express, http-proxy
 - **Database & Cache:** PostgreSQL, Drizzle ORM, Redis (ioredis)
-- **Storage:** MinIO (S3-compatible Object Storage)
+- **Storage:** RustFS (S3-compatible Object Storage)
 - **Monorepo Management:** NPM Workspaces, mprocs
 
 ---
@@ -136,12 +136,12 @@ Open `.env` and fill out the necessary values:
 
 - **Database:** PostgreSQL connection string (`DATABASE_URL`).
 - **Redis:** Redis connection URL (`REDIS_URL`).
-- **MinIO:** Access keys, secret keys, and endpoint config.
+- **Object storage (RustFS):** `S3_*` access keys, secret keys, endpoint and bucket config (legacy `MINIO_*` names still work).
 - **GitHub Apps / Auth:** Client IDs and secrets for OAuth.
 
 ### 4. Start Infrastructure Services
 
-Kyro relies on PostgreSQL, Redis, and MinIO. Start them quickly using the provided Docker Compose file:
+Kyro relies on PostgreSQL, Redis, and RustFS. Start them quickly using the provided Docker Compose file:
 
 ```bash
 docker compose -f docker-compose.dev.yml up -d
@@ -183,6 +183,6 @@ Once everything is running, you can access the platform at:
 
 - **Main Developer Dashboard:** [http://localhost:3000](http://localhost:3000)
 - **Proxy/Routing Engine:** [http://localhost:8000](http://localhost:8000) (Your deployed apps will be served here)
-- **MinIO Console (Storage):** [http://localhost:9001](http://localhost:9001) (Check `.env` for default login credentials, e.g., `kyro_admin` / `kyro_password`)
+- **RustFS Console (Storage):** [http://localhost:9001](http://localhost:9001) (Check `.env` for default login credentials, e.g., `kyro_admin` / `kyro_password`)
 
 ---

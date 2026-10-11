@@ -1,6 +1,6 @@
 /**
  * PM2 process definitions for running Kyro's three Node processes on a host
- * that already has Docker + the infra containers (Postgres/Redis/MinIO) up.
+ * that already has Docker + the infra containers (Postgres/Redis/RustFS) up.
  *
  * Tuned for a 1 GB Free-Tier box:
  *  - single instance each (fork mode), no clustering
@@ -69,7 +69,7 @@ module.exports = {
       },
     },
     {
-      // Reverse proxy that serves static artifacts from MinIO and runs SSR
+      // Reverse proxy that serves static artifacts from RustFS and runs SSR
       // deployments in per-deployment containers (capped + reaped by RunnerService).
       name: "kyro-proxy",
       cwd: "apps/proxy",
@@ -78,7 +78,7 @@ module.exports = {
       interpreter: "none",
       autorestart: true,
       restart_delay: 3000,
-      // 10 s lets the proxy drain active HTTP streams to MinIO before shutdown.
+      // 10 s lets the proxy drain active HTTP streams to RustFS before shutdown.
       kill_timeout: 10000,
       max_memory_restart: "250M",
       merge_logs: true,

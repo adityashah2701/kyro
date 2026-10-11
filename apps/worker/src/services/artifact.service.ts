@@ -4,7 +4,7 @@ import os from "os";
 import { spawn } from "child_process";
 import { logger } from "../logger";
 import { DetectionResult } from "./detector.service";
-import { MinioStorageProvider } from "@kyro/storage";
+import { createStorageFromEnv } from "@kyro/storage";
 import crypto from "crypto";
 
 /** Canonical object key (relative to the artifact prefix) for a server bundle. */
@@ -34,16 +34,7 @@ function run(cmd: string, args: string[]): Promise<void> {
   });
 }
 
-const storage = new MinioStorageProvider(
-  {
-    endPoint: process.env.MINIO_ENDPOINT || "localhost",
-    port: parseInt(process.env.MINIO_PORT || "9000", 10),
-    useSSL: process.env.MINIO_USE_SSL === "true",
-    accessKey: process.env.MINIO_ACCESS_KEY || "kyro_admin",
-    secretKey: process.env.MINIO_SECRET_KEY || "kyro_password",
-  },
-  process.env.MINIO_BUCKET || "kyro-deployments",
-);
+const storage = createStorageFromEnv();
 
 // Initialize bucket
 storage.initialize().catch((err) => {
@@ -168,7 +159,7 @@ export class ArtifactService {
       hash,
       checksum,
       artifactLocation: prefix,
-      storageProvider: "minio",
+      storageProvider: "s3",
       serveMode,
       metadata: {
         framework: detection.framework,

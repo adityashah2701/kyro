@@ -3,7 +3,7 @@ import * as path from "path";
 import * as fs from "fs/promises";
 import { createWriteStream } from "fs";
 import * as http from "http";
-import { MinioStorageProvider } from "@kyro/storage";
+import { createStorageFromEnv } from "@kyro/storage";
 
 /** Must match SERVER_BUNDLE_NAME in the worker's artifact.service.ts. */
 const SERVER_BUNDLE_NAME = "__server_bundle.tgz";
@@ -50,16 +50,7 @@ export class RunnerService {
     });
   }
 
-  private static storage = new MinioStorageProvider(
-    {
-      endPoint: process.env.MINIO_ENDPOINT || "localhost",
-      port: parseInt(process.env.MINIO_PORT || "9000", 10),
-      useSSL: process.env.MINIO_USE_SSL === "true",
-      accessKey: process.env.MINIO_ACCESS_KEY || "kyro_admin",
-      secretKey: process.env.MINIO_SECRET_KEY || "kyro_password",
-    },
-    process.env.MINIO_BUCKET || "kyro-deployments",
-  );
+  private static storage = createStorageFromEnv();
 
   /** Runs a command to completion, resolving on exit 0. */
   private static exec(cmd: string, args: string[]): Promise<void> {

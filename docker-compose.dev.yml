@@ -22,7 +22,7 @@ services:
     ports:
       - "6379:6379"
 
-  minio:
+  rustfs:
     ports:
       - "9000:9000"    # S3 API
       - "9001:9001"    # Web console

@@ -6,6 +6,7 @@ import { eq, and } from "@kyro/database";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
+import { hashPassword } from "@kyro/shared/password";
 import {
   createProjectSchema,
   updateProjectSchema,
@@ -57,8 +58,9 @@ export async function createProject(data: CreateProjectInput) {
         webAnalyticsEnabled: parsedData.data.webAnalyticsEnabled ?? false,
         passwordProtectionEnabled:
           parsedData.data.passwordProtectionEnabled ?? false,
-        passwordProtectionPassword:
-          parsedData.data.passwordProtectionPassword || null,
+        passwordProtectionPassword: parsedData.data.passwordProtectionPassword
+          ? await hashPassword(parsedData.data.passwordProtectionPassword)
+          : null,
       })
       .returning();
 
@@ -86,6 +88,16 @@ export async function updateProject(data: UpdateProjectInput) {
     }
 
     const { id, ...updateData } = parsedData.data;
+
+    // The stored value is a hash and never sent to the browser, so an empty
+    // value means "unchanged". Turn protection off to stop using a password.
+    if (updateData.passwordProtectionPassword) {
+      updateData.passwordProtectionPassword = await hashPassword(
+        updateData.passwordProtectionPassword,
+      );
+    } else {
+      delete updateData.passwordProtectionPassword;
+    }
 
     if (updateData.slug) {
       const existing = await db.query.project.findFirst({

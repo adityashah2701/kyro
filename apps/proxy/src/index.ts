@@ -1,25 +1,23 @@
 import express from "express";
 import { RoutingService } from "./services/routing.service";
 import { RunnerService } from "./services/runner.service";
-import { MinioStorageProvider } from "@kyro/storage";
+import { createStorageFromEnv } from "@kyro/storage";
 import path from "path";
 import httpProxy from "http-proxy";
 import { db, schema } from "@kyro/database";
+import {
+  signUnlockCookie,
+  verifyPassword,
+  verifyUnlockCookie,
+} from "@kyro/shared/password";
 
 const app = express();
+// Caddy is the single hop in front; needed so req.ip is the visitor, not Caddy.
+app.set("trust proxy", 1);
 const PORT = process.env.PROXY_PORT || 8000;
 
 // Initialize Storage Provider
-const storage = new MinioStorageProvider(
-  {
-    endPoint: process.env.MINIO_ENDPOINT || "localhost",
-    port: parseInt(process.env.MINIO_PORT || "9000", 10),
-    useSSL: process.env.MINIO_USE_SSL === "true",
-    accessKey: process.env.MINIO_ACCESS_KEY || "kyro_admin",
-    secretKey: process.env.MINIO_SECRET_KEY || "kyro_password",
-  },
-  process.env.MINIO_BUCKET || "kyro-deployments",
-);
+const storage = createStorageFromEnv();
 
 const proxyServer = httpProxy.createProxyServer({});
 
@@ -115,6 +113,30 @@ proxyServer.on("error", (err, req, res) => {
   }
 });
 
+const UNLOCK_MAX_AGE_S = 30 * 24 * 60 * 60;
+
+const authSecret = () => {
+  const secret = process.env.BETTER_AUTH_SECRET;
+  if (!secret) throw new Error("BETTER_AUTH_SECRET is required");
+  return secret;
+};
+
+// shortcut: in-memory per-process limiter; use Redis if the proxy runs in several processes.
+const MAX_ATTEMPTS = 5;
+const ATTEMPT_WINDOW_MS = 15 * 60 * 1000;
+const attempts = new Map<string, { count: number; resetAt: number }>();
+
+function tooManyAttempts(key: string): boolean {
+  const now = Date.now();
+  const entry = attempts.get(key);
+  if (!entry || entry.resetAt < now) {
+    attempts.set(key, { count: 1, resetAt: now + ATTEMPT_WINDOW_MS });
+    return false;
+  }
+  entry.count++;
+  return entry.count > MAX_ATTEMPTS;
+}
+
 app.post(
   "/_kyro/auth",
   express.urlencoded({ extended: true }),
@@ -126,16 +148,34 @@ app.post(
 
     try {
       const route = await RoutingService.resolveHost(host);
-      if (!route || !route.passwordProtectionEnabled) {
+      if (
+        !route ||
+        !route.passwordProtectionEnabled ||
+        !route.passwordProtectionPassword
+      ) {
         return res.status(404).send("Deployment not found or not protected.");
       }
 
+      if (tooManyAttempts(`${route.projectId}:${req.ip}`)) {
+        return res.status(429).send("Too many attempts. Try again later.");
+      }
+
       const password = req.body.password;
-      if (password === route.passwordProtectionPassword) {
-        // Set cookie for 30 days
+      if (
+        typeof password === "string" &&
+        (await verifyPassword(password, route.passwordProtectionPassword))
+      ) {
+        const value = signUnlockCookie(
+          route.projectId,
+          route.passwordProtectionPassword,
+          authSecret(),
+          UNLOCK_MAX_AGE_S,
+        );
+        const secure =
+          req.secure || req.headers["x-forwarded-proto"] === "https";
         res.setHeader(
           "Set-Cookie",
-          `kyro_auth_${route.projectId}=true; Path=/; HttpOnly; Max-Age=2592000`,
+          `kyro_auth_${route.projectId}=${value}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${UNLOCK_MAX_AGE_S}${secure ? "; Secure" : ""}`,
         );
         return res.redirect("/");
       } else {
@@ -228,7 +268,15 @@ app.use(async (req, res, next) => {
       };
       const cookies = parseCookies(req.headers.cookie);
 
-      if (cookies[`kyro_auth_${route.projectId}`] !== "true") {
+      if (
+        !route.passwordProtectionPassword ||
+        !verifyUnlockCookie(
+          cookies[`kyro_auth_${route.projectId}`],
+          route.projectId,
+          route.passwordProtectionPassword,
+          authSecret(),
+        )
+      ) {
         const authHtml = `
 <!DOCTYPE html>
 <html lang="en" class="h-full">
@@ -301,7 +349,7 @@ app.use(async (req, res, next) => {
 
     // Decide how to serve this deployment from its actual build output, not from
     // project config. A build that produced a root index.html is a static site and
-    // is always served from MinIO (fast + reliable). Only a build with no index.html
+    // is always served from object storage (fast + reliable). Only a build with no index.html
     // AND a configured start command is treated as a live server (SSR).
     const serveStatic = await isStaticDeployment(route.artifactLocation);
 
@@ -336,7 +384,7 @@ app.use(async (req, res, next) => {
     // If root (/) is requested, default to /index.html
     let reqPath = req.path === "/" ? "/index.html" : req.path;
 
-    // Construct the MinIO object path
+    // Construct the object-storage key
     // artifactLocation looks like "deployments/{deploymentId}"
     let objectPath = path.posix.join(route.artifactLocation, reqPath);
 
