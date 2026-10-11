@@ -340,21 +340,28 @@ app.use(async (req, res, next) => {
     // artifactLocation looks like "deployments/{deploymentId}"
     let objectPath = path.posix.join(route.artifactLocation, reqPath);
 
+    // req.path is not normalised, so "/../<other-deployment>/x" would escape
+    // this deployment's folder. Refuse any key outside it.
+    const insideArtifact = (key: string) =>
+      key.startsWith(`${route.artifactLocation}/`);
+    const fetchObject = (key: string) =>
+      insideArtifact(key) ? storage.downloadStream(key) : Promise.resolve(null);
+
     // Try fetching the stream
-    let result = await storage.downloadStream(objectPath);
+    let result = await fetchObject(objectPath);
 
     // Single-Page Application (SPA) Fallback Routing
     // If the file doesn't exist and the request doesn't have an extension (like /dashboard),
     // fallback to index.html to let the client-side router handle it.
     if (!result && !path.extname(reqPath)) {
       objectPath = path.posix.join(route.artifactLocation, "/index.html");
-      result = await storage.downloadStream(objectPath);
+      result = await fetchObject(objectPath);
     }
 
     // HTML extension fallback (some servers try /about.html if /about is not found)
     if (!result && !path.extname(reqPath)) {
       objectPath = path.posix.join(route.artifactLocation, `${reqPath}.html`);
-      result = await storage.downloadStream(objectPath);
+      result = await fetchObject(objectPath);
     }
 
     if (!result) {

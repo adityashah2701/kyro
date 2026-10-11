@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import dns from "dns/promises";
 
 export interface DnsVerificationResult {
@@ -5,60 +6,50 @@ export interface DnsVerificationResult {
   reason?: string;
 }
 
+/**
+ * Per-domain proof-of-ownership value. Derived from the domain id so it needs
+ * no extra column; the owner puts it in a TXT record at `_kyro-challenge.<host>`.
+ */
+export function domainChallengeToken(domainId: string): string {
+  const secret = process.env.BETTER_AUTH_SECRET;
+  if (!secret) throw new Error("BETTER_AUTH_SECRET is required.");
+  return crypto
+    .createHmac("sha256", secret)
+    .update(`domain-verify:${domainId}`)
+    .digest("hex")
+    .slice(0, 32);
+}
+
 export class DnsCheckerService {
   /**
-   * Checks if the given hostname has a CNAME or TXT record pointing to our target.
-   * For the MVP, we assume the target CNAME is `cname.kyro.dev`
-   * and the target TXT record is `kyro-verify=true`.
+   * Checks that `_kyro-challenge.<hostname>` has a TXT record containing this
+   * domain's token. A CNAME alone is not proof: a dangling CNAME on someone
+   * else's DNS would let anyone claim the hostname.
    */
   public static async verifyOwnership(
-    hostname: string
+    hostname: string,
+    domainId: string
   ): Promise<DnsVerificationResult> {
+    // Local testing only; never auto-verify in production.
+    if (process.env.NODE_ENV !== "production" && hostname.endsWith(".test")) {
+      return { verified: true };
+    }
+
+    const expected = `kyro-verify=${domainChallengeToken(domainId)}`;
+
     try {
-      // Bypass for local testing
-      if (hostname.endsWith(".test")) {
+      const txtRecords = await dns.resolveTxt(`_kyro-challenge.${hostname}`);
+      // TXT records are returned as an array of arrays of strings
+      if (txtRecords.some((parts) => parts.join("").trim() === expected)) {
         return { verified: true };
       }
-
-      // 1. Check CNAME (for subdomains)
-      try {
-        const cnameRecords = await dns.resolveCname(hostname);
-        if (
-          cnameRecords.some(
-            (record) =>
-              record === "kyro.adityashah27.dev" || record === "cname.kyro.dev"
-          )
-        ) {
-          return { verified: true };
-        }
-      } catch {
-        // Ignore ENOTFOUND/ENODATA for CNAME, proceed to check TXT
-      }
-
-      // 2. Check TXT (for apex domains or if CNAME is missing)
-      try {
-        const txtRecords = await dns.resolveTxt(hostname);
-        // TXT records are returned as an array of arrays of strings
-        for (const recordArray of txtRecords) {
-          const recordString = recordArray.join("");
-          if (recordString.includes("kyro-verify=true")) {
-            return { verified: true };
-          }
-        }
-      } catch {
-        // Ignore ENOTFOUND/ENODATA
-      }
-
-      return {
-        verified: false,
-        reason: "Could not find matching CNAME or TXT records.",
-      };
-    } catch (error) {
-      console.error(`DNS Verification failed for ${hostname}:`, error);
-      return {
-        verified: false,
-        reason: "DNS lookup failed.",
-      };
+    } catch {
+      // ENOTFOUND/ENODATA: record not published yet
     }
+
+    return {
+      verified: false,
+      reason: "Could not find the matching TXT record.",
+    };
   }
 }

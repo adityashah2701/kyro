@@ -1,29 +1,21 @@
 "use server";
 
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { addDomainSchema, type AddDomainInput } from "./schemas";
 import { DomainService } from "./services/domain.service";
+import { requireProjectOwner } from "@/features/projects/authorize";
 
 export async function addDomainAction(data: AddDomainInput) {
   try {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
-
-    if (!session || !session.user) {
-      return { error: "Unauthorized" };
-    }
-
     const parsedData = addDomainSchema.safeParse(data);
     if (!parsedData.success) {
       return { error: "Invalid domain", details: parsedData.error.flatten() };
     }
 
+    await requireProjectOwner(parsedData.data.projectId);
     await DomainService.addDomain(
       parsedData.data.projectId,
-      parsedData.data.hostname
+      parsedData.data.hostname.toLowerCase()
     );
     revalidatePath(`/projects/${parsedData.data.projectId}`);
     return { success: true };
@@ -37,14 +29,7 @@ export async function addDomainAction(data: AddDomainInput) {
 
 export async function verifyDomainAction(domainId: string, projectId: string) {
   try {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
-
-    if (!session || !session.user) {
-      return { error: "Unauthorized" };
-    }
-
+    await requireProjectOwner(projectId);
     await DomainService.verifyDomain(domainId, projectId);
     revalidatePath(`/projects/${projectId}`);
     return { success: true };
@@ -59,14 +44,7 @@ export async function verifyDomainAction(domainId: string, projectId: string) {
 
 export async function removeDomainAction(domainId: string, projectId: string) {
   try {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
-
-    if (!session || !session.user) {
-      return { error: "Unauthorized" };
-    }
-
+    await requireProjectOwner(projectId);
     await DomainService.deleteDomain(domainId, projectId);
     revalidatePath(`/projects/${projectId}`);
     return { success: true };
@@ -84,14 +62,7 @@ export async function setPrimaryDomainAction(
   projectId: string
 ) {
   try {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
-
-    if (!session || !session.user) {
-      return { error: "Unauthorized" };
-    }
-
+    await requireProjectOwner(projectId);
     await DomainService.setPrimaryDomain(domainId, projectId);
     revalidatePath(`/projects/${projectId}`);
     return { success: true };

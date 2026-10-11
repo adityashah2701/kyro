@@ -1,17 +1,10 @@
 "use server";
 
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { envVariableSchema } from "./schemas";
 import { EnvService } from "./services/env.service";
 import type { Environment } from "./schemas";
-
-async function getAuthenticatedUserId(): Promise<string> {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session?.user?.id) throw new Error("Unauthenticated");
-  return session.user.id;
-}
+import { requireProjectOwner } from "@/features/projects/authorize";
 
 export async function addVariableAction(
   projectId: string,
@@ -23,7 +16,7 @@ export async function addVariableAction(
   }
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const userId = await getAuthenticatedUserId();
+    const userId = await requireProjectOwner(projectId);
     const parsed = envVariableSchema.safeParse(formData);
     if (!parsed.success) {
       return {
@@ -55,7 +48,7 @@ export async function updateVariableAction(
   isSecret: boolean
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    await getAuthenticatedUserId();
+    await requireProjectOwner(projectId);
     await EnvService.updateVariable(id, projectId, value, isSecret);
     revalidatePath(`/projects/${projectId}`);
     return { success: true };
@@ -70,7 +63,7 @@ export async function deleteVariableAction(
   projectId: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    await getAuthenticatedUserId();
+    await requireProjectOwner(projectId);
     await EnvService.deleteVariable(id, projectId);
     revalidatePath(`/projects/${projectId}`);
     return { success: true };
@@ -85,8 +78,8 @@ export async function revealVariableAction(
   projectId: string
 ): Promise<{ success: boolean; value?: string; error?: string }> {
   try {
-    await getAuthenticatedUserId();
-    const value = await EnvService.revealValue(id, projectId);
+    await requireProjectOwner(projectId);
+    const value =await EnvService.revealValue(id, projectId);
     return { success: true, value };
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Failed to reveal variable";

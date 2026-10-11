@@ -13,6 +13,7 @@ import { eq, desc, and } from "@kyro/database";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { DomainsTab } from "@/features/domains/components/domains-tab";
+import { domainChallengeToken } from "@/features/domains/services/dns.service";
 import { notFound } from "next/navigation";
 
 export const metadata = { title: "Domains | Kyro" };
@@ -77,7 +78,13 @@ export default async function DomainsPage(props: {
           description={`Manage custom domains and SSL certificates for ${projectData?.name}.`}
         />
         <div className="mt-8 animate-in fade-in-50 duration-500">
-          <DomainsTab domains={userDomains} projectId={projectId} />
+          <DomainsTab
+            domains={userDomains.map((d) => ({
+              ...d,
+              verifyToken: domainChallengeToken(d.id),
+            }))}
+            projectId={projectId}
+          />
         </div>
       </PageContainer>
     );

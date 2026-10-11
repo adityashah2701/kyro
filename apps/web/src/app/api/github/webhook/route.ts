@@ -12,16 +12,27 @@ export async function POST(request: Request) {
 
     const bodyText = await request.text();
 
-    const secret = process.env.GITHUB_WEBHOOK_SECRET;
-    if (secret && signature) {
-      const hmac = crypto.createHmac("sha256", secret);
-      const digest = "sha256=" + hmac.update(bodyText).digest("hex");
-      if (signature !== digest) {
-        return NextResponse.json(
-          { error: "Invalid signature" },
-          { status: 401 }
-        );
-      }
+    // Name matches .env.example; the old name is kept as a fallback.
+    const secret =
+      process.env.GITHUB_APP_WEBHOOK_SECRET ||
+      process.env.GITHUB_WEBHOOK_SECRET;
+    if (!secret) {
+      console.error("Webhook rejected: GITHUB_APP_WEBHOOK_SECRET is not set");
+      return NextResponse.json(
+        { error: "Webhook not configured" },
+        { status: 503 }
+      );
+    }
+    const expected = Buffer.from(
+      "sha256=" +
+        crypto.createHmac("sha256", secret).update(bodyText).digest("hex")
+    );
+    const received = Buffer.from(signature ?? "");
+    if (
+      received.length !== expected.length ||
+      !crypto.timingSafeEqual(received, expected)
+    ) {
+      return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
     }
 
     if (event !== "push") {

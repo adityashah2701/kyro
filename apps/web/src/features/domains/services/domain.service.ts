@@ -54,7 +54,8 @@ export class DomainService {
 
     // 1. Check DNS
     const dnsResult = await DnsCheckerService.verifyOwnership(
-      domainRecord.hostname
+      domainRecord.hostname,
+      domainRecord.id
     );
 
     if (!dnsResult.verified) {

@@ -27,6 +27,7 @@ type DomainData = {
   isPrimary: boolean;
   verificationStatus: string;
   sslStatus: string;
+  verifyToken: string;
 };
 
 export function DomainsTab({
@@ -178,7 +179,7 @@ export function DomainsTab({
         <div className="flex flex-col">
           {domains.map((d, index) => {
             const isProcessing = processingId === d.id;
-            const instructions = getDnsInstructions(d.hostname);
+            const instructions = getDnsInstructions(d.hostname, d.verifyToken);
             return (
               <div
                 key={d.id}

@@ -70,8 +70,15 @@ export class MinioStorageProvider implements StorageProvider {
     localDir: string,
     prefix: string,
   ): Promise<void> {
+    // Never publish build-time secrets, even when the output dir is the
+    // workspace root (".well-known" and other dotfiles are still uploaded).
+    const isSecretFile = (name: string) =>
+      name === ".git" || name === ".kyro-build.sh" || /^\.env(\.|$)/.test(name);
+
     async function getFiles(dir: string): Promise<string[]> {
-      const dirents = await fs.readdir(dir, { withFileTypes: true });
+      const dirents = (await fs.readdir(dir, { withFileTypes: true })).filter(
+        (dirent) => !isSecretFile(dirent.name),
+      );
       const files = await Promise.all(
         dirents.map((dirent) => {
           const res = path.resolve(dir, dirent.name);

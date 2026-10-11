@@ -132,6 +132,8 @@ export class GitService {
 
     try {
       const gitDest = simpleGit(destinationPath);
+      // Don't leave the installation token in .git/config where build scripts can read it.
+      await gitDest.remote(["set-url", "origin", cloneUrl]);
       const log = await gitDest.log({ maxCount: 1 });
       const latestCommit = log.latest;
       if (latestCommit) {

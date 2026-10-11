@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import * as deploymentService from "./services/deployment.service";
+import { requireProjectOwner } from "@/features/projects/authorize";
 
 export async function triggerDeploymentAction(projectId: string) {
   const session = await auth.api.getSession({
@@ -14,6 +15,7 @@ export async function triggerDeploymentAction(projectId: string) {
     throw new Error("Unauthorized");
   }
 
+  await requireProjectOwner(projectId);
   const newDeployment = await deploymentService.createDeployment(
     projectId,
     session.user.id,
